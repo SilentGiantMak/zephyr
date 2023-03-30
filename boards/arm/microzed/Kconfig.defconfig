@@ -1,0 +1,14 @@
+# Avnet Microzed board 
+
+# Copyright (c) 2022 Henrik Brix Andersen <henrik@brixandersen.dk>
+# SPDX-License-Identifier: Apache-2.0
+
+if BOARD_MICROZED
+
+config BOARD
+	default "microzed"
+
+config SYS_CLOCK_TICKS_PER_SEC
+	default 1000
+
+endif # BOARD_ZYBO
