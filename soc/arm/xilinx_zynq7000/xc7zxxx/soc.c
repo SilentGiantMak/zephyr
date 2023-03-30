@@ -36,6 +36,12 @@ static const struct arm_mmu_region mmu_regions[] = {
 			      DT_REG_SIZE(DT_CHOSEN(zephyr_ocm)),
 			      MT_STRONGLY_ORDERED | MPERM_R | MPERM_W),
 	/* ARM Arch timer, GIC are covered by the MPCore mapping */
+#ifdef CONFIG_DT_HAS_XLNX_GEM_ENABLED
+MMU_REGION_FLAT_ENTRY("slcr",
+			  DT_REG_ADDR(DT_NODELABEL(slcr)),
+			  DT_REG_SIZE(DT_NODELABEL(slcr)),
+			  MT_STRONGLY_ORDERED | MPERM_R | MPERM_W),
+#endif
 
 /* GEMs */
 #if DT_NODE_HAS_STATUS(DT_NODELABEL(gem0), okay)
