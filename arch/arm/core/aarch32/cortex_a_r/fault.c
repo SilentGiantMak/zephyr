@@ -13,6 +13,15 @@ LOG_MODULE_DECLARE(os, CONFIG_KERNEL_LOG_LEVEL);
 
 #define FAULT_DUMP_VERBOSE	(CONFIG_FAULT_DUMP == 2)
 
+static void print_uint32(unsigned int num)
+{
+    // big endian
+    sys_write32((unsigned int)((num >> 24) & 0xFF), 0xE0001030);
+    sys_write32((unsigned int)((num >> 16) & 0xFF), 0xE0001030);
+    sys_write32((unsigned int)((num >> 8) & 0xFF), 0xE0001030);
+    sys_write32((unsigned int)((num) & 0xFF), 0xE0001030);
+}
+
 #if FAULT_DUMP_VERBOSE
 static const char *get_dbgdscr_moe_string(uint32_t moe)
 {
@@ -51,6 +60,7 @@ static void dump_debug_event(void)
 static uint32_t dump_fault(uint32_t status, uint32_t addr)
 {
 	uint32_t reason = K_ERR_CPU_EXCEPTION;
+	sys_write32((unsigned int)('F'),0xE0001030);
 	/*
 	 * Dump fault status and, if applicable, tatus-specific information.
 	 * Note that the fault address is only displayed for the synchronous
@@ -59,37 +69,46 @@ static uint32_t dump_fault(uint32_t status, uint32_t addr)
 	switch (status) {
 	case FSR_FS_ALIGNMENT_FAULT:
 		reason = K_ERR_ARM_ALIGNMENT_FAULT;
+		sys_write32(0x1,0xE0001030);
 		LOG_ERR("Alignment Fault @ 0x%08x", addr);
 		break;
 	case FSR_FS_BACKGROUND_FAULT:
 		reason = K_ERR_ARM_BACKGROUND_FAULT;
+		sys_write32(0x2,0xE0001030);
 		LOG_ERR("Background Fault @ 0x%08x", addr);
 		break;
 	case FSR_FS_PERMISSION_FAULT:
 		reason = K_ERR_ARM_PERMISSION_FAULT;
+		sys_write32(0x3,0xE0001030);
 		LOG_ERR("Permission Fault @ 0x%08x", addr);
 		break;
 	case FSR_FS_SYNC_EXTERNAL_ABORT:
 		reason = K_ERR_ARM_SYNC_EXTERNAL_ABORT;
+		sys_write32(0x7,0xE0001030);
 		LOG_ERR("Synchronous External Abort @ 0x%08x", addr);
 		break;
 	case FSR_FS_ASYNC_EXTERNAL_ABORT:
 		reason = K_ERR_ARM_ASYNC_EXTERNAL_ABORT;
+		sys_write32(0x4,0xE0001030);
 		LOG_ERR("Asynchronous External Abort");
 		break;
 	case FSR_FS_SYNC_PARITY_ERROR:
 		reason = K_ERR_ARM_SYNC_PARITY_ERROR;
+		sys_write32(0x5,0xE0001030);
 		LOG_ERR("Synchronous Parity/ECC Error @ 0x%08x", addr);
 		break;
 	case FSR_FS_ASYNC_PARITY_ERROR:
 		reason = K_ERR_ARM_ASYNC_PARITY_ERROR;
+		sys_write32(0x6,0xE0001030);
 		LOG_ERR("Asynchronous Parity/ECC Error");
 		break;
 	case FSR_FS_DEBUG_EVENT:
 		reason = K_ERR_ARM_DEBUG_EVENT;
+		sys_write32(0x8,0xE0001030);
 		dump_debug_event();
 		break;
 	default:
+		sys_write32(0x9,0xE0001030);
 		LOG_ERR("Unknown (%u)", status);
 	}
 	return reason;
@@ -106,6 +125,7 @@ static uint32_t dump_fault(uint32_t status, uint32_t addr)
  */
 bool z_arm_fault_undef_instruction_fp(void)
 {
+	sys_write32((unsigned int)('U'),0xE0001030);
 	/*
 	 * Assume this is a floating point instruction that faulted because
 	 * the FP unit was disabled.  Enable the FP unit and try again.  If
@@ -190,6 +210,7 @@ bool z_arm_fault_undef_instruction(z_arch_esf_t *esf)
 		: "memory"
 		);
 #endif
+	sys_write32((unsigned int)('I'),0xE0001030);
 
 	/* Print fault information */
 	LOG_ERR("***** UNDEFINED INSTRUCTION ABORT *****");
@@ -214,6 +235,7 @@ bool z_arm_fault_prefetch(z_arch_esf_t *esf)
 {
 	uint32_t reason = K_ERR_CPU_EXCEPTION;
 
+	sys_write32((unsigned int)('P'),0xE0001030);
 	/* Read and parse Instruction Fault Status Register (IFSR) */
 	uint32_t ifsr = __get_IFSR();
 	uint32_t fs = ((ifsr & IFSR_FS1_Msk) >> 6) | (ifsr & IFSR_FS0_Msk);
@@ -253,6 +275,7 @@ static const struct z_exc_handle exceptions[] = {
  */
 static bool memory_fault_recoverable(z_arch_esf_t *esf)
 {
+	sys_write32((unsigned int)('M'),0xE0001030);
 	for (int i = 0; i < ARRAY_SIZE(exceptions); i++) {
 		/* Mask out instruction mode */
 		uint32_t start = (uint32_t)exceptions[i].start & ~0x1U;
@@ -277,13 +300,24 @@ bool z_arm_fault_data(z_arch_esf_t *esf)
 {
 	uint32_t reason = K_ERR_CPU_EXCEPTION;
 
+	sys_write32((unsigned int)('D'),0xE0001030);
 	/* Read and parse Data Fault Status Register (DFSR) */
 	uint32_t dfsr = __get_DFSR();
+	// 0x5 - translation fault
+	print_uint32(dfsr);
 	uint32_t fs = ((dfsr & DFSR_FS1_Msk) >> 6) | (dfsr & DFSR_FS0_Msk);
 
 	/* Read Data Fault Address Register (DFAR) */
 	uint32_t dfar = __get_DFAR();
+	// 0x18
+	print_uint32(dfar);
 
+	print_uint32(esf->basic.lr);
+
+	// get the L1 PT descriptor for this address - assume TTBR0 = 0x8000
+	uint32_t l1addr = 0x8000 | ((dfar & 0xFFF00000) >> 18);
+	print_uint32(sys_read32(l1addr));
+	
 #if defined(CONFIG_USERSPACE)
 	if ((fs == FSR_FS_BACKGROUND_FAULT)
 			|| (fs == FSR_FS_PERMISSION_FAULT)) {

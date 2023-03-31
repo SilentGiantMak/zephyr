@@ -7,7 +7,7 @@
 
 /* Zephyr headers */
 #include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(net_sock, CONFIG_NET_SOCKETS_LOG_LEVEL);
+LOG_MODULE_REGISTER(net_sock, LOG_LEVEL_DBG);
 
 #include <zephyr/kernel.h>
 #include <zephyr/net/net_context.h>
@@ -158,11 +158,13 @@ static void zsock_flush_queue(struct net_context *ctx)
 #if defined(CONFIG_NET_NATIVE)
 static int zsock_socket_internal(int family, int type, int proto)
 {
+	LOG_DBG("Sock internal.");
 	int fd = z_reserve_fd();
 	struct net_context *ctx;
 	int res;
 
 	if (fd < 0) {
+		LOG_DBG("FD < 0");
 		return -1;
 	}
 
@@ -178,6 +180,7 @@ static int zsock_socket_internal(int family, int type, int proto)
 
 	res = net_context_get(family, type, proto, &ctx);
 	if (res < 0) {
+		LOG_DBG("Context get error.");
 		z_free_fd(fd);
 		errno = -res;
 		return -1;
@@ -758,6 +761,7 @@ ssize_t zsock_sendto_ctx(struct net_context *ctx, const void *buf, size_t len,
 			 int flags,
 			 const struct sockaddr *dest_addr, socklen_t addrlen)
 {
+	LOG_DBG("Sendto ctx.");
 	k_timeout_t timeout = K_FOREVER;
 	uint32_t retry_timeout = WAIT_BUFS_INITIAL_MS;
 	uint64_t buf_timeout = 0;
@@ -765,26 +769,33 @@ ssize_t zsock_sendto_ctx(struct net_context *ctx, const void *buf, size_t len,
 	int status;
 
 	if ((flags & ZSOCK_MSG_DONTWAIT) || sock_is_nonblock(ctx)) {
+		LOG_DBG("o1");
 		timeout = K_NO_WAIT;
 	} else {
 		net_context_get_option(ctx, NET_OPT_SNDTIMEO, &timeout, NULL);
 		buf_timeout = sys_clock_timeout_end_calc(MAX_WAIT_BUFS);
 	}
 
+<<<<<<< HEAD
 	end = sys_clock_timeout_end_calc(timeout);
 
+=======
+	LOG_DBG("After if");
+>>>>>>> cfc6397a54 (Add debugging statements and change debug levels)
 	/* Register the callback before sending in order to receive the response
 	 * from the peer.
 	 */
 	status = net_context_recv(ctx, zsock_received_cb,
 				  K_NO_WAIT, ctx->user_data);
 	if (status < 0) {
+		LOG_DBG("Recv error.");
 		errno = -status;
 		return -1;
 	}
 
 	while (1) {
 		if (dest_addr) {
+			LOG_DBG("While sendto...");
 			status = net_context_sendto(ctx, buf, len, dest_addr,
 						    addrlen, NULL, timeout,
 						    ctx->user_data);
@@ -794,9 +805,11 @@ ssize_t zsock_sendto_ctx(struct net_context *ctx, const void *buf, size_t len,
 		}
 
 		if (status < 0) {
+			LOG_DBG("Send check and wait...");
 			status = send_check_and_wait(ctx, status, buf_timeout,
 						     timeout, &retry_timeout);
 			if (status < 0) {
+				LOG_DBG("Status < 0");
 				return status;
 			}
 
@@ -815,6 +828,7 @@ ssize_t zsock_sendto_ctx(struct net_context *ctx, const void *buf, size_t len,
 ssize_t z_impl_zsock_sendto(int sock, const void *buf, size_t len, int flags,
 			   const struct sockaddr *dest_addr, socklen_t addrlen)
 {
+	LOG_DBG("Z impl sendto.");
 	VTABLE_CALL(sendto, sock, buf, len, flags, dest_addr, addrlen);
 }
 
@@ -822,6 +836,7 @@ ssize_t z_impl_zsock_sendto(int sock, const void *buf, size_t len, int flags,
 ssize_t z_vrfy_zsock_sendto(int sock, const void *buf, size_t len, int flags,
 			   const struct sockaddr *dest_addr, socklen_t addrlen)
 {
+	LOG_DBG("Z vrfy sendto");
 	struct sockaddr_storage dest_addr_copy;
 
 	Z_OOPS(Z_SYSCALL_MEMORY_READ(buf, len));

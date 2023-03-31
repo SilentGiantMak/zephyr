@@ -12,7 +12,7 @@
  */
 
 #include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(net_ctx, CONFIG_NET_CONTEXT_LOG_LEVEL);
+LOG_MODULE_REGISTER(net_ctx, LOG_LEVEL_DBG);
 
 #include <zephyr/kernel.h>
 #include <zephyr/random/rand32.h>
@@ -242,6 +242,7 @@ int net_context_get(sa_family_t family, enum net_sock_type type, uint16_t proto,
 	if (IS_ENABLED(CONFIG_NET_CONTEXT_CHECK)) {
 		ret = net_context_check(family, type, proto, context);
 		if (ret < 0) {
+			LOG_DBG("Context check err.");
 			return ret;
 		}
 	}
@@ -292,6 +293,7 @@ int net_context_get(sa_family_t family, enum net_sock_type type, uint16_t proto,
 
 				if (!addr6->sin6_port) {
 					ret = -EADDRINUSE;
+					LOG_DBG("EADDRINUSE");
 					break;
 				}
 			}
@@ -324,6 +326,7 @@ int net_context_get(sa_family_t family, enum net_sock_type type, uint16_t proto,
 	k_sem_give(&contexts_lock);
 
 	if (ret < 0) {
+		LOG_DBG("After for loop err.");
 		return ret;
 	}
 
@@ -644,7 +647,9 @@ int net_context_bind(struct net_context *context, const struct sockaddr *addr,
 			ptr = &maddr->address.in_addr;
 
 		} else if (addr4->sin_addr.s_addr == INADDR_ANY) {
+			LOG_DBG("B");
 			if (iface == NULL) {
+				LOG_DBG("Iface NULL in bound");
 				iface = net_if_ipv4_select_src_iface(
 					&net_sin(&context->remote)->sin_addr);
 			}
@@ -1464,6 +1469,7 @@ static int context_sendto(struct net_context *context,
 	NET_ASSERT(PART_OF_ARRAY(contexts, context));
 
 	if (!net_context_is_used(context)) {
+		LOG_DBG("EBADF");
 		return -EBADF;
 	}
 
@@ -1473,8 +1479,11 @@ static int context_sendto(struct net_context *context,
 	}
 
 	if (!msghdr && !dst_addr) {
+		LOG_DBG("Some err");
 		return -EDESTADDRREQ;
 	}
+
+	
 
 	if (IS_ENABLED(CONFIG_NET_IPV6) &&
 	    net_context_get_family(context) == AF_INET6) {
@@ -1522,7 +1531,10 @@ static int context_sendto(struct net_context *context,
 		const struct sockaddr_in *addr4 =
 			(const struct sockaddr_in *)dst_addr;
 
+		LOG_DBG("In IPv4 context %p",context);	
+
 		if (msghdr) {
+			LOG_DBG("msghdr");	
 			addr4 = msghdr->msg_name;
 			addrlen = msghdr->msg_namelen;
 
@@ -1537,10 +1549,12 @@ static int context_sendto(struct net_context *context,
 		}
 
 		if (addrlen < sizeof(struct sockaddr_in)) {
+			LOG_DBG("EINVAL");
 			return -EINVAL;
 		}
 
 		if (!addr4->sin_addr.s_addr) {
+			LOG_DBG("Some err 2");
 			return -EDESTADDRREQ;
 		}
 
@@ -1553,7 +1567,14 @@ static int context_sendto(struct net_context *context,
 		 */
 		if (net_sin(&context->remote)->sin_addr.s_addr == 0U &&
 		    !net_context_is_bound_to_iface(context)) {
+			LOG_DBG("Setting the interface here");
 			iface = net_if_ipv4_select_src_iface(&addr4->sin_addr);
+
+			// again, check the iface
+			if (iface->config.ip.ipv4 == NULL)
+			{
+				LOG_WRN("No IPv4 attached to the iface even before.");
+			}
 			net_context_set_iface(context, iface);
 		}
 
@@ -1653,6 +1674,8 @@ static int context_sendto(struct net_context *context,
 		return -EINVAL;
 	}
 
+	LOG_DBG("After if statements");
+
 	if (msghdr && len == 0) {
 		int i;
 
@@ -1661,8 +1684,26 @@ static int context_sendto(struct net_context *context,
 		}
 	}
 
+	
 	iface = net_context_get_iface(context);
+
+	bool isup = net_if_is_up(iface);
+	if (!isup)
+	{
+		LOG_DBG("Interface is down!");
+		// try to bring it up
+		int rt = net_if_up(iface);
+		LOG_DBG("Ret: %d",rt);
+	}
+
+	// chck the address of the iface
+	if (iface->config.ip.ipv4 == NULL)
+	{
+		LOG_WRN("No IPv4 attached to the iface.");
+	}
+	
 	if (iface && !net_if_is_up(iface)) {
+		LOG_ERR("Enetdown");
 		return -ENETDOWN;
 	}
 

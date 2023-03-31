@@ -29,6 +29,8 @@ static void handler(struct net_mgmt_event_callback *cb,
 	int i = 0;
 	struct net_if_config *cfg;
 
+	LOG_INF("Running the handler...");
+
 	cfg = net_if_get_config(iface);
 	if (!cfg) {
 		return;
@@ -58,5 +60,6 @@ void main(void)
 
 	net_mgmt_init_event_callback(&mgmt_cb, handler,
 				     NET_EVENT_IPV4_ADDR_ADD);
+	LOG_INF("The second func...");
 	net_mgmt_add_event_callback(&mgmt_cb);
 }

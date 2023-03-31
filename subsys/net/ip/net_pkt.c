@@ -515,6 +515,8 @@ void net_pkt_unref(struct net_pkt *pkt)
 #endif /* NET_LOG_LEVEL >= LOG_LEVEL_DBG */
 	atomic_val_t ref;
 
+	LOG_DBG("Packet unref called.");
+
 	if (!pkt) {
 #if NET_LOG_LEVEL >= LOG_LEVEL_DBG
 		NET_ERR("*** ERROR *** pkt %p (%s():%d)", pkt, caller, line);
