@@ -5,7 +5,7 @@
  */
 
 #include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(net_if, CONFIG_NET_IF_LOG_LEVEL);
+LOG_MODULE_REGISTER(net_if, LOG_LEVEL_DBG);
 
 #include <zephyr/init.h>
 #include <zephyr/kernel.h>
@@ -131,12 +131,13 @@ static sys_slist_t timestamp_callbacks;
 
 struct net_if *z_impl_net_if_get_by_index(int index)
 {
+	LOG_DBG("Index %u",index);
 	if (index <= 0) {
 		return NULL;
 	}
 
 	if (&_net_if_list_start[index - 1] >= _net_if_list_end) {
-		NET_DBG("Index %d is too large", index);
+		LOG_DBG("Index %d is too large", index);
 		return NULL;
 	}
 
@@ -208,6 +209,7 @@ static void update_txtime_stats_detail(struct net_pkt *pkt,
 
 static bool net_if_tx(struct net_if *iface, struct net_pkt *pkt)
 {
+	LOG_DBG("");
 	struct net_linkaddr ll_dst = {
 		.addr = NULL
 	};
@@ -260,6 +262,7 @@ static bool net_if_tx(struct net_if *iface, struct net_pkt *pkt)
 			}
 		}
 
+		LOG_DBG("Calling L2 send...");
 		status = net_if_l2(iface)->send(iface, pkt);
 
 		if (IS_ENABLED(CONFIG_NET_PKT_TXTIME_STATS)) {
@@ -2857,6 +2860,7 @@ struct in6_addr *net_if_ipv6_get_global_addr(enum net_addr_state state,
 #if defined(CONFIG_NET_NATIVE_IPV4)
 int net_if_config_ipv4_get(struct net_if *iface, struct net_if_ipv4 **ipv4)
 {
+	LOG_DBG("Setting the IPv4 config");
 	int ret = 0;
 	int i;
 
@@ -3133,11 +3137,14 @@ static struct in_addr *net_if_ipv4_get_best_match(struct net_if *iface,
 	int i;
 
 	if (!ipv4) {
+		LOG_DBG("Not IPv4");
 		return NULL;
 	}
 
 	for (i = 0; i < NET_IF_MAX_IPV4_ADDR; i++) {
+		LOG_DBG("In loop");
 		if (!is_proper_ipv4_address(&ipv4->unicast[i])) {
+			LOG_DBG("Not proper");
 			continue;
 		}
 
@@ -3219,8 +3226,10 @@ const struct in_addr *net_if_ipv4_select_src_addr(struct net_if *dst_iface,
 
 	if (!net_ipv4_is_ll_addr(dst)) {
 
+		LOG_DBG("Not link local");
 		/* If caller has supplied interface, then use that */
 		if (dst_iface) {
+			LOG_DBG("Getting best match...");
 			src = net_if_ipv4_get_best_match(dst_iface, dst,
 							 &best_match);
 		} else {
@@ -3465,6 +3474,7 @@ struct net_if_addr *net_if_ipv4_addr_add(struct net_if *iface,
 					 enum net_addr_type addr_type,
 					 uint32_t vlifetime)
 {
+	LOG_DBG("Adding the IP address to iface %p",iface);
 	struct net_if_addr *ifaddr = NULL;
 	struct net_if_ipv4 *ipv4;
 	int i;
@@ -4021,6 +4031,8 @@ int net_if_up(struct net_if *iface)
 
 	NET_DBG("iface %p", iface);
 
+	LOG_DBG("Trying to bring an interface up...");
+
 	k_mutex_lock(&lock, K_FOREVER);
 
 	if (net_if_flag_is_set(iface, NET_IF_UP)) {
@@ -4032,18 +4044,21 @@ int net_if_up(struct net_if *iface)
 	     net_if_is_ip_offloaded(iface)) ||
 	    (IS_ENABLED(CONFIG_NET_SOCKETS_OFFLOAD) &&
 	     net_if_is_socket_offloaded(iface))) {
+		LOG_DBG("Setting...");
 		net_if_flag_set(iface, NET_IF_UP);
 		goto notify;
 	}
 
 	/* If the L2 does not support enable just set the flag */
 	if (!net_if_l2(iface) || !net_if_l2(iface)->enable) {
+		LOG_DBG("Cannot just set the bit");
 		goto done;
 	}
 
 	/* Notify L2 to enable the interface */
 	status = net_if_l2(iface)->enable(iface, true);
 	if (status < 0) {
+		LOG_DBG("Failed to enable");
 		goto out;
 	}
 
@@ -4349,6 +4364,8 @@ void net_if_init(void)
 	if (if_count == 0) {
 		NET_ERR("There is no network interface to work with!");
 		goto out;
+	} else {
+		LOG_DBG("If count: %d",if_count);
 	}
 
 	iface_ipv6_init(if_count);

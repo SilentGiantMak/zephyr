@@ -326,6 +326,7 @@ static char *prepare_multithreading(void)
 
 	/* _kernel.ready_q is all zeroes */
 	z_sched_init();
+	sys_write32((unsigned int)('1'),0xE0001030);
 
 #ifndef CONFIG_SMP
 	/*
@@ -344,10 +345,13 @@ static char *prepare_multithreading(void)
 				       NULL, NULL, NULL,
 				       CONFIG_MAIN_THREAD_PRIORITY,
 				       K_ESSENTIAL, "main");
+	sys_write32((unsigned int)('6'),0xE0001030);   
 	z_mark_thread_as_started(&z_main_thread);
+	sys_write32((unsigned int)('7'),0xE0001030);
 	z_ready_thread(&z_main_thread);
 
 	z_init_cpu(0);
+	sys_write32((unsigned int)('2'),0xE0001030);
 
 	return stack_ptr;
 }
@@ -364,6 +368,7 @@ static FUNC_NORETURN void switch_to_main_thread(char *stack_ptr)
 	 * current fake thread is not on a wait queue or ready queue, so it
 	 * will never be rescheduled in.
 	 */
+	sys_write32((unsigned int)('3'),0xE0001030);
 	z_swap_unlocked();
 #endif
 	CODE_UNREACHABLE; /* LCOV_EXCL_LINE */
@@ -424,14 +429,17 @@ sys_rand_fallback:
 __boot_func
 FUNC_NORETURN void z_cstart(void)
 {
+	// try to print the virt addr bundle
+	sys_write32((unsigned int)('r'),0xE0001030);
 	/* gcov hook needed to get the coverage report.*/
 	gcov_static_init();
-
+	
 	/* perform any architecture-specific initialization */
+	sys_write32((unsigned int)('s'),0xE0001030);
 	arch_kernel_init();
-
 	LOG_CORE_INIT();
 
+	
 #if defined(CONFIG_MULTITHREADING)
 	/* Note: The z_ready_thread() call in prepare_multithreading() requires
 	 * a dummy thread even if CONFIG_ARCH_HAS_CUSTOM_SWAP_TO_MAIN=y
@@ -439,13 +447,21 @@ FUNC_NORETURN void z_cstart(void)
 	struct k_thread dummy_thread;
 
 	z_dummy_thread_init(&dummy_thread);
+
+	sys_write32((unsigned int)('t'),0xE0001030);
 #endif
+
+	// try to pump some characters to UART
+	
 	/* do any necessary initialization of static devices */
 	z_device_state_init();
+	sys_write32((unsigned int)('x'),0xE0001030);
 
 	/* perform basic hardware initialization */
 	z_sys_init_run_level(_SYS_INIT_LEVEL_PRE_KERNEL_1);
+	sys_write32((unsigned int)('u'),0xE0001030);
 	z_sys_init_run_level(_SYS_INIT_LEVEL_PRE_KERNEL_2);
+	sys_write32((unsigned int)('v'),0xE0001030);
 
 #ifdef CONFIG_STACK_CANARIES
 	uintptr_t stack_guard;
@@ -461,7 +477,9 @@ FUNC_NORETURN void z_cstart(void)
 #endif
 
 #ifdef CONFIG_MULTITHREADING
+	sys_write32((unsigned int)('{'),0xE0001030);
 	switch_to_main_thread(prepare_multithreading());
+	sys_write32((unsigned int)('w'),0xE0001030);
 #else
 #ifdef ARCH_SWITCH_TO_MAIN_NO_MULTITHREADING
 	/* Custom ARCH-specific routine to switch to main()

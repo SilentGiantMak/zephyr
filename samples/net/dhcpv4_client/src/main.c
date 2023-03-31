@@ -28,6 +28,8 @@ static void handler(struct net_mgmt_event_callback *cb,
 {
 	int i = 0;
 
+	LOG_INF("Starting handler...");
+
 	if (mgmt_event != NET_EVENT_IPV4_ADDR_ADD) {
 		return;
 	}
@@ -65,9 +67,12 @@ void main(void)
 
 	net_mgmt_init_event_callback(&mgmt_cb, handler,
 				     NET_EVENT_IPV4_ADDR_ADD);
+	printk("1\n");
 	net_mgmt_add_event_callback(&mgmt_cb);
+	printk("2\n");
 
 	iface = net_if_get_default();
+	printk("3\n");
 
 	net_dhcpv4_start(iface);
 }

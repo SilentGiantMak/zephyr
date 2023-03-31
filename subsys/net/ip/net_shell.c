@@ -4185,8 +4185,10 @@ static int cmd_net_ping(const struct shell *shell, size_t argc, char *argv[])
 	if (IS_ENABLED(CONFIG_NET_IPV4)) {
 		ret = ping_ipv4(shell, host, count, interval, iface_idx);
 		if (ret) {
-			if (ret == -EIO || ret == -ENETUNREACH) {
+			if (ret == -EIO) {
 				PR_WARNING("Cannot send IPv4 ping\n");
+			} else if (ret == -ENETUNREACH) {
+				PR_WARNING("Enetunreach\n");
 			} else if (ret == -EINVAL) {
 				PR_WARNING("Invalid IP address\n");
 			} else if (ret == -ENOTSUP) {

@@ -35,6 +35,8 @@ void main(void)
 	if (serv < 0) {
 		printf("error: socket: %d\n", errno);
 		exit(1);
+	} else {
+		printf("Initialized the socket!\n");
 	}
 
 	bind_addr.sin_family = AF_INET;
