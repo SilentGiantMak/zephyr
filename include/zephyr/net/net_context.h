@@ -661,6 +661,12 @@ static inline void net_context_set_iface(struct net_context *context,
 	NET_ASSERT(iface);
 
 	context->iface = net_if_get_by_iface(iface);
+
+	// set the bit too
+	if (context->iface)
+	{
+		context->flags |= NET_CONTEXT_BOUND_TO_IFACE;	
+	}
 }
 
 static inline uint8_t net_context_get_ipv4_ttl(struct net_context *context)
