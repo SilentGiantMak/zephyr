@@ -201,6 +201,34 @@ static inline size_t virt_to_bitmap_offset(void *vaddr, size_t size)
 		- POINTER_TO_UINT(vaddr) - size) / CONFIG_MMU_PAGE_SIZE;
 }
 
+static void printch(char p)
+{
+	// wait for an empty flag in case the buffer is completely full
+	while ((sys_read32(0xe000102c) & 0x8)==0);	
+	sys_write32((unsigned int)(p),0xE0001030);
+}
+
+static void print(char *prefix, unsigned num)
+{
+    for (char *p = prefix; *p; p++)
+	printch(*p);
+
+	char str[12] = { 0 };
+	char hex[] = "0123456789abcdef";
+	char *p = str;
+	do {
+		*p++ = hex[num & 0xf];
+		num >>= 4;
+	} while (num > 0);
+	*p++ = 'x';
+	*p = '0';
+	while (p >= str)
+		printch(*p--);
+	printch('\r');
+	printch('\n');
+
+}
+
 static void virt_region_init(void)
 {
 	size_t offset, num_bits;
@@ -210,6 +238,7 @@ static void virt_region_init(void)
 	 * already allocated so they will never be used.
 	 */
 
+	// Z_VM_RESERVED = 0
 	if (Z_VM_RESERVED > 0) {
 		/* Mark reserved region at end of virtual address space */
 		num_bits = Z_VM_RESERVED / CONFIG_MMU_PAGE_SIZE;
@@ -218,18 +247,26 @@ static void virt_region_init(void)
 	}
 
 	/* Mark all bits up to Z_FREE_VM_START as allocated */
+	// 0xbe000
 	num_bits = POINTER_TO_UINT(Z_FREE_VM_START)
 		   - POINTER_TO_UINT(Z_VIRT_RAM_START);
+	// 1858 bits
 	offset = virt_to_bitmap_offset(Z_VIRT_RAM_START, num_bits);
+	// 190 bits
 	num_bits /= CONFIG_MMU_PAGE_SIZE;
+	sys_write32((unsigned int)('y'),0xE0001030);
+	// ---
+	print("\n\rBundle addr:",(unsigned)(virt_region_bitmap.bundles));
 	(void)sys_bitarray_set_region(&virt_region_bitmap,
 				      num_bits, offset);
+	sys_write32((unsigned int)('w'),0xE0001030);
 
 	virt_region_inited = true;
 }
 
 static void virt_region_free(void *vaddr, size_t size)
 {
+	sys_write32((unsigned int)('F'),0xE0001030);
 	size_t offset, num_bits;
 	uint8_t *vaddr_u8 = (uint8_t *)vaddr;
 
@@ -250,6 +287,7 @@ static void virt_region_free(void *vaddr, size_t size)
 	(void)sys_bitarray_free(&virt_region_bitmap, num_bits, offset);
 }
 
+
 static void *virt_region_alloc(size_t size, size_t align)
 {
 	uintptr_t dest_addr;
@@ -258,9 +296,15 @@ static void *virt_region_alloc(size_t size, size_t align)
 	size_t num_bits;
 	int ret;
 
+	printch('z');
+
 	if (unlikely(!virt_region_inited)) {
+		sys_write32((unsigned int)('o'),0xE0001030);
+		// ---
 		virt_region_init();
 	}
+
+	printch('m');
 
 	/* Possibly request more pages to ensure we can get an aligned virtual address */
 	num_bits = (size + align - CONFIG_MMU_PAGE_SIZE) / CONFIG_MMU_PAGE_SIZE;
@@ -271,12 +315,15 @@ static void *virt_region_alloc(size_t size, size_t align)
 			size);
 		return NULL;
 	}
+	sys_write32((unsigned int)('x'),0xE0001030);
+	printch('x');
 
 	/* Remember that bit #0 in bitmap corresponds to the highest
 	 * virtual address. So here we need to go downwards (backwards?)
 	 * to get the starting address of the allocated region.
 	 */
 	dest_addr = virt_from_bitmap_offset(offset, alloc_size);
+	printch('c');
 
 	if (alloc_size > size) {
 		uintptr_t aligned_dest_addr = ROUND_UP(dest_addr, align);
@@ -322,12 +369,15 @@ static void *virt_region_alloc(size_t size, size_t align)
 
 		dest_addr = aligned_dest_addr;
 	}
+	printch('v');
 
 	/* Need to make sure this does not step into kernel memory */
 	if (dest_addr < POINTER_TO_UINT(Z_VIRT_REGION_START_ADDR)) {
+		sys_write32((unsigned int)('b'),0xE0001030);
 		(void)sys_bitarray_free(&virt_region_bitmap, size, offset);
 		return NULL;
 	}
+	printch('n');
 
 	return UINT_TO_POINTER(dest_addr);
 }
@@ -711,12 +761,23 @@ static size_t virt_region_align(uintptr_t phys, size_t size)
 
 __weak FUNC_ALIAS(virt_region_align, arch_virt_region_align, size_t);
 
+static void print_uint32(unsigned int num)
+{
+    // big endian
+    sys_write32((unsigned int)((num >> 24) & 0xFF), 0xE0001030);
+    sys_write32((unsigned int)((num >> 16) & 0xFF), 0xE0001030);
+    sys_write32((unsigned int)((num >> 8) & 0xFF), 0xE0001030);
+    sys_write32((unsigned int)((num) & 0xFF), 0xE0001030);
+}
 /* This may be called from arch early boot code before z_cstart() is invoked.
  * Data will be copied and BSS zeroed, but this must not rely on any
  * initialization functions being called prior to work correctly.
  */
 void z_phys_map(uint8_t **virt_ptr, uintptr_t phys, size_t size, uint32_t flags)
 {
+	print("\n\rMapping to phys:",(unsigned)phys);
+	print("\n\rRequired size:",(unsigned)size);
+
 	uintptr_t aligned_phys, addr_offset;
 	size_t aligned_size, align_boundary;
 	k_spinlock_key_t key;
@@ -730,12 +791,18 @@ void z_phys_map(uint8_t **virt_ptr, uintptr_t phys, size_t size, uint32_t flags)
 		 "wraparound for physical address 0x%lx (size %zu)",
 		 aligned_phys, aligned_size);
 
+	// align_boundary = 4096B
 	align_boundary = arch_virt_region_align(aligned_phys, aligned_size);
 
 	key = k_spin_lock(&z_mm_lock);
+	printch(')');
+
 	/* Obtain an appropriately sized chunk of virtual memory */
+	// ---
 	dest_addr = virt_region_alloc(aligned_size, align_boundary);
+	printch('^');
 	if (!dest_addr) {
+		sys_write32((unsigned int)('f'),0xE0001030);
 		goto fail;
 	}
 
@@ -744,6 +811,7 @@ void z_phys_map(uint8_t **virt_ptr, uintptr_t phys, size_t size, uint32_t flags)
 		 ((uintptr_t)dest_addr + (size - 1)),
 		 "wraparound for virtual address %p (size %zu)",
 		 dest_addr, size);
+	printch('&');
 
 	LOG_DBG("arch_mem_map(%p, 0x%lx, %zu, %x) offset %lu", dest_addr,
 		aligned_phys, aligned_size, flags, addr_offset);
@@ -752,6 +820,7 @@ void z_phys_map(uint8_t **virt_ptr, uintptr_t phys, size_t size, uint32_t flags)
 	k_spin_unlock(&z_mm_lock, key);
 
 	*virt_ptr = dest_addr + addr_offset;
+	print("\n\rMapped to:",(unsigned)*virt_ptr);
 	return;
 fail:
 	/* May re-visit this in the future, but for now running out of
@@ -838,12 +907,15 @@ static void mark_linker_section_pinned(void *start_addr, void *end_addr,
 
 void z_mem_manage_init(void)
 {
+	print("[mem_manage_init]",0);
 	uintptr_t phys;
 	uint8_t *addr;
 	struct z_page_frame *pf;
 	k_spinlock_key_t key = k_spin_lock(&z_mm_lock);
 
+	printch('7');
 	free_page_frame_list_init();
+	printch('4');
 
 	ARG_UNUSED(addr);
 
@@ -876,6 +948,7 @@ void z_mem_manage_init(void)
 		pf->flags |= Z_PAGE_FRAME_PINNED;
 	}
 #endif /* CONFIG_LINKER_GENERIC_SECTIONS_PRESENT_AT_BOOT */
+	printch('5');
 
 #ifdef CONFIG_LINKER_USE_BOOT_SECTION
 	/* Pin the boot section to prevent it from being swapped out during
@@ -897,7 +970,7 @@ void z_mem_manage_init(void)
 			free_page_frame_list_put(pf);
 		}
 	}
-	LOG_DBG("free page frames: %zu", z_free_page_count);
+	LOG_INF("free page frames: %zu", z_free_page_count);
 
 #ifdef CONFIG_DEMAND_PAGING
 #ifdef CONFIG_DEMAND_PAGING_TIMING_HISTOGRAM
@@ -1325,7 +1398,7 @@ static bool do_page_fault(void *addr, bool pin)
 	__ASSERT(page_frames_initialized, "page fault at %p happened too early",
 		 addr);
 
-	LOG_DBG("page fault at %p", addr);
+	print("page fault at %p", addr);
 
 	/*
 	 * TODO: Add performance accounting:

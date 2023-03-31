@@ -119,6 +119,44 @@ static void invalidate_tlb_all(void)
 	__ISB();
 }
 
+static inline void printch(char c)
+{
+	while ((sys_read32(0xe000102c) & 0x8)==0);
+	sys_write32((unsigned int)c, 0xE0001030);
+}
+
+static void print_uint32(unsigned int num)
+{
+	// big endian
+	sys_write32((unsigned int)((num >> 24) & 0xFF), 0xE0001030);
+	sys_write32((unsigned int)((num >> 16) & 0xFF), 0xE0001030);
+	sys_write32((unsigned int)((num >> 8) & 0xFF), 0xE0001030);
+	sys_write32((unsigned int)((num) & 0xFF), 0xE0001030);
+}
+
+static void print(char *prefix, unsigned num)
+{
+	for (char *p = prefix; *p; p++)
+	{
+		printch(*p);
+	}
+	char str[12] = { 0 };
+	char hex[] = "0123456789abcdef";
+	char *p = str;
+	do {
+		*p++ = hex[num & 0xf];
+		num >>= 4;
+	} while (num > 0);
+	*p++ = 'x';
+	*p = '0';
+	while (p >= str)
+	{
+		printch(*p--);
+	}
+	printch('\r');
+	printch('\n');
+}
+
 /**
  * @brief Returns a free level 2 page table
  * Initializes and returns the next free L2 page table whenever
@@ -562,6 +600,7 @@ static void arm_mmu_l2_map_page(uint32_t va, uint32_t pa,
 	if (l1_page_table.entries[l1_index].undefined.id == ARM_MMU_PTE_ID_INVALID ||
 	    (l1_page_table.entries[l1_index].undefined.id & ARM_MMU_PTE_ID_SECTION) != 0) {
 		l2_page_table = arm_mmu_assign_l2_table(pa);
+		sys_write32((unsigned int)('1'),0xE0001030);
 		__ASSERT(l2_page_table != NULL,
 			 "Unexpected L2 page table NULL pointer for VA 0x%08X",
 			 va);
@@ -717,6 +756,8 @@ static void arm_mmu_l2_unmap_page(uint32_t va)
 	arm_mmu_dec_l2_table_entries(l2_page_table);
 }
 
+
+
 /**
  * @brief MMU boot-time initialization function
  * Initializes the MMU at boot time. Sets up the page tables and
@@ -737,6 +778,8 @@ int z_arm_mmu_init(void)
 	uint32_t reg_val = 0;
 	struct arm_mmu_perms_attrs perms_attrs;
 
+	sys_write32((unsigned int)('a'),0xE0001030);
+
 	__ASSERT(KB(4) == CONFIG_MMU_PAGE_SIZE,
 		 "MMU_PAGE_SIZE value %u is invalid, only 4 kB pages are supported\n",
 		 CONFIG_MMU_PAGE_SIZE);
@@ -756,6 +799,7 @@ int z_arm_mmu_init(void)
 		 */
 		if (((uint32_t)&l1_page_table >= pa) &&
 				((uint32_t)&l1_page_table < (pa + rem_size))) {
+				sys_write32((unsigned int)('P'),0xE0001030);
 			pt_attrs = attrs;
 		}
 
@@ -768,6 +812,7 @@ int z_arm_mmu_init(void)
 				 * pages with identical configuration.
 				 */
 				arm_mmu_l1_map_section(pa, pa, perms_attrs);
+				sys_write32((unsigned int)('B'),0xE0001030);
 				rem_size -= MB(1);
 				pa += MB(1);
 			} else {
@@ -786,6 +831,7 @@ int z_arm_mmu_init(void)
 		attrs       = mmu_config.mmu_regions[mem_range].attrs;
 		perms_attrs = arm_mmu_convert_attr_flags(attrs);
 
+
 		while (rem_size > 0) {
 			arm_mmu_l2_map_page(va, pa, perms_attrs);
 			rem_size -= (rem_size >= KB(4)) ? KB(4) : rem_size;
@@ -794,6 +840,21 @@ int z_arm_mmu_init(void)
 		}
 	}
 
+	// map the page of the bitmap in case it is in the wrong location again
+	// unsigned bitmap_loc = (unsigned)virt_region_bitmap.bundles;
+	// print_uint32(bitmap_loc);
+	// if (bitmap_loc > 0x800000)
+	// {
+	// 	// 0x800000 is the Kconfig constant for kernel virtual memory size
+	// 	print("Faulty addr\n",0x0);
+	// 	pa = bitmap_loc & 0xFFFFF000;
+	// 	arm_mmu_l2_map_page(pa, pa, arm_mmu_convert_attr_flags(MT_NORMAL | MATTR_SHARED | MPERM_R | MPERM_W ));
+	// } else {
+	// 	print("Not mapping\n",0x0);
+	// }
+
+	arm_mmu_l2_map_page(0xE0001000, 0xE0001000, arm_mmu_convert_attr_flags(MT_DEVICE | MATTR_SHARED | MPERM_R | MPERM_W ));
+	
 	/* Clear TTBR1 */
 	__asm__ __volatile__("mcr p15, 0, %0, c2, c0, 1" : : "r"(reg_val));
 
@@ -848,6 +909,8 @@ int z_arm_mmu_init(void)
 	reg_val |= ARM_MMU_SCTLR_MMU_ENABLE_BIT;
 	__set_SCTLR(reg_val);
 
+	sys_write32((unsigned int)('e'),0xE0001030);
+
 	return 0;
 }
 
@@ -865,6 +928,7 @@ int z_arm_mmu_init(void)
  */
 static int __arch_mem_map(void *virt, uintptr_t phys, size_t size, uint32_t flags)
 {
+	// print("R:",(uint32_t)virt);
 	uint32_t va = (uint32_t)virt;
 	uint32_t pa = (uint32_t)phys;
 	uint32_t rem_size = (uint32_t)size;
