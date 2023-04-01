@@ -160,6 +160,7 @@ static int malloc_prepare(const struct device *unused)
 	max_heap_size &= ~(CONFIG_MMU_PAGE_SIZE-1);
 
 	if (max_heap_size != 0) {
+		sys_write32((unsigned int)('+'),0xE0001030);
 		heap_base = k_mem_map(max_heap_size, K_MEM_PERM_RW);
 		__ASSERT(heap_base != NULL,
 			 "failed to allocate heap of size %zu", max_heap_size);

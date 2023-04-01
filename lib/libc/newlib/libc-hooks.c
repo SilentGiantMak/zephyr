@@ -107,6 +107,7 @@ static int malloc_prepare(const struct device *unused)
 	max_heap_size = MIN(CONFIG_NEWLIB_LIBC_MAX_MAPPED_REGION_SIZE,
 			    k_mem_free_get());
 
+	sys_write32((unsigned int)('_'),0xE0001030);
 	if (max_heap_size != 0) {
 		heap_base = k_mem_map(max_heap_size, K_MEM_PERM_RW);
 		__ASSERT(heap_base != NULL,
@@ -131,6 +132,7 @@ static int malloc_prepare(const struct device *unused)
 		 "minimum required size specified by "
 		 "CONFIG_NEWLIB_LIBC_MIN_REQUIRED_HEAP_SIZE");
 
+	sys_write32((unsigned int)('!'),0xE0001030);
 	return 0;
 }
 
