@@ -776,12 +776,9 @@ ssize_t zsock_sendto_ctx(struct net_context *ctx, const void *buf, size_t len,
 		buf_timeout = sys_clock_timeout_end_calc(MAX_WAIT_BUFS);
 	}
 
-<<<<<<< HEAD
 	end = sys_clock_timeout_end_calc(timeout);
 
-=======
 	LOG_DBG("After if");
->>>>>>> cfc6397a54 (Add debugging statements and change debug levels)
 	/* Register the callback before sending in order to receive the response
 	 * from the peer.
 	 */
