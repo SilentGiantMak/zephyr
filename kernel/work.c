@@ -738,7 +738,9 @@ void k_work_queue_start(struct k_work_q *queue,
 		k_thread_name_set(&queue->thread, cfg->name);
 	}
 
+	sys_write32('W', 0xE0001030);
 	k_thread_start(&queue->thread);
+	sys_write32('R', 0xE0001030);
 
 	SYS_PORT_TRACING_OBJ_FUNC_EXIT(k_work_queue, start, queue);
 }
