@@ -407,7 +407,7 @@ static char *prepare_multithreading(void)
 
 	/* _kernel.ready_q is all zeroes */
 	z_sched_init();
-	sys_write32((unsigned int)('1'),0xE0001030);
+	sys_write32((unsigned int)('%'),0xE0001030);
 
 #ifndef CONFIG_SMP
 	/*

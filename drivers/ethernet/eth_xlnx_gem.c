@@ -769,7 +769,7 @@ static void eth_xlnx_gem_configure_clocks(const struct device *dev)
 	// %u",sys_read32(0xF8000758),sys_read32(0xF800075c),sys_read32(0xF8000760),sys_read32(0xF8000764),sys_read32(0xF8000768),sys_read32(0xF800076c));
 	// LOG_DBG("MDIO regs: %u, %u",sys_read32(0xF80007D0),sys_read32(0xF80007D4));
 
-	sys_write32((unsigned int)('1'), 0xE0001030);
+	sys_write32((unsigned int)('0'), 0xE0001030);
 	uint32_t div0;
 	uint32_t div1;
 	uint32_t target = 2500000; /* default prevents 'may be uninitialized' warning */

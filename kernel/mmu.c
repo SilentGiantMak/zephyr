@@ -18,7 +18,7 @@
 #include <zephyr/sys/bitarray.h>
 #include <zephyr/timing/timing.h>
 #include <zephyr/logging/log.h>
-LOG_MODULE_DECLARE(os, CONFIG_KERNEL_LOG_LEVEL);
+LOG_MODULE_DECLARE(os, LOG_LEVEL_DBG);
 
 /*
  * General terminology:
@@ -948,7 +948,7 @@ void z_mem_manage_init(void)
 		pf->flags |= Z_PAGE_FRAME_PINNED;
 	}
 #endif /* CONFIG_LINKER_GENERIC_SECTIONS_PRESENT_AT_BOOT */
-	printch('5');
+	printch('|');
 
 #ifdef CONFIG_LINKER_USE_BOOT_SECTION
 	/* Pin the boot section to prevent it from being swapped out during
@@ -965,6 +965,7 @@ void z_mem_manage_init(void)
 	/* Any remaining pages that aren't mapped, reserved, or pinned get
 	 * added to the free pages list
 	 */
+	printch('/');
 	Z_PAGE_FRAME_FOREACH(phys, pf) {
 		if (z_page_frame_is_available(pf)) {
 			free_page_frame_list_put(pf);

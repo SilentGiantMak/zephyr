@@ -33,7 +33,7 @@
 #include <zephyr/arch/arm/aarch32/mmu/arm_mmu.h>
 #include "arm_mmu_priv.h"
 
-LOG_MODULE_DECLARE(os, CONFIG_KERNEL_LOG_LEVEL);
+LOG_MODULE_DECLARE(os, LOG_LEVEL_DBG);
 
 /* Level 1 page table: always required, must be 16k-aligned */
 static struct arm_mmu_l1_page_table
