@@ -7,7 +7,7 @@
 
 /* Zephyr headers */
 #include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(net_sock, LOG_LEVEL_DBG);
+LOG_MODULE_REGISTER(net_sock, CONFIG_NET_SOCKETS_LOG_LEVEL);
 
 #include <zephyr/kernel.h>
 #include <zephyr/net/net_context.h>

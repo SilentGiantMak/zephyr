@@ -12,7 +12,7 @@
  */
 
 #include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(net_ctx, LOG_LEVEL_DBG);
+LOG_MODULE_REGISTER(net_ctx, CONFIG_NET_CONTEXT_LOG_LEVEL);
 
 #include <zephyr/kernel.h>
 #include <zephyr/random/rand32.h>

@@ -5,7 +5,7 @@
  */
 
 #include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(net_if, LOG_LEVEL_DBG);
+LOG_MODULE_REGISTER(net_if, CONFIG_NET_IF_LOG_LEVEL);
 
 #include <zephyr/init.h>
 #include <zephyr/kernel.h>

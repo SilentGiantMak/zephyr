@@ -35,7 +35,7 @@
 #define LOG_MODULE_NAME eth_xlnx_gem
 #define LOG_LEVEL	CONFIG_ETHERNET_LOG_LEVEL
 
-LOG_MODULE_REGISTER(LOG_MODULE_NAME, LOG_LEVEL_DBG);
+LOG_MODULE_REGISTER(LOG_MODULE_NAME);
 
 static int eth_xlnx_gem_dev_init(const struct device *dev);
 static void eth_xlnx_gem_iface_init(struct net_if *iface);

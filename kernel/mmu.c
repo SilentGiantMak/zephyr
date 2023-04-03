@@ -554,23 +554,19 @@ static int map_anon_page(void *addr, uint32_t flags)
 	}
 
 	phys = z_page_frame_to_phys(pf);
-	printch('>');
 	arch_mem_map(addr, phys, CONFIG_MMU_PAGE_SIZE, flags | K_MEM_CACHE_WB);
 
 	if (lock) {
 		pf->flags |= Z_PAGE_FRAME_PINNED;
 	}
 	frame_mapped_set(pf, addr);
-	printch(',');
 	LOG_DBG("memory mapping anon page %p -> 0x%lx", addr, phys);
 
 	if (!uninit) {
 		/* If we later implement mappings to a copy-on-write
 		 * zero page, won't need this step
 		 */
-		printch('`');
 		memset(addr, 0, CONFIG_MMU_PAGE_SIZE);
-		printch(';');
 	}
 
 	return 0;
