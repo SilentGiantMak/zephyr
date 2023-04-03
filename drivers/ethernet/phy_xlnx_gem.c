@@ -21,7 +21,7 @@
 #define LOG_MODULE_NAME phy_xlnx_gem
 #define LOG_LEVEL CONFIG_ETHERNET_LOG_LEVEL
 
-LOG_MODULE_REGISTER(LOG_MODULE_NAME, LOG_LEVEL_DBG);
+LOG_MODULE_REGISTER(LOG_MODULE_NAME);
 
 /* Basic MDIO read / write functions for PHY access */
 
@@ -229,7 +229,6 @@ static void phy_xlnx_gem_marvell_alaska_reset(const struct device *dev)
  */
 static void phy_xlnx_gem_marvell_alaska_cfg(const struct device *dev)
 {
-	LOG_DBG("Configuring PHY...");
 	const struct eth_xlnx_gem_dev_cfg *dev_conf = dev->config;
 	struct eth_xlnx_gem_dev_data *dev_data = dev->data;
 	uint16_t phy_data;
@@ -251,7 +250,6 @@ static void phy_xlnx_gem_marvell_alaska_cfg(const struct device *dev)
 	phy_xlnx_gem_marvell_alaska_reset(dev);
 
 	if ((dev_data->phy_id & PHY_MRVL_PHY_ID_MODEL_MASK) == PHY_MRVL_PHY_ID_MODEL_88E151X) {
-		LOG_DBG("Model 88e151x...");
 		/*
 		 * 88E151x only: configure the system interface and media type
 		 * (i.e. "RGMII to Copper", 0x0). On the 88E1111, this setting
@@ -890,7 +888,6 @@ static struct phy_xlnx_gem_supported_dev phy_xlnx_gem_supported_devs[] = {
  */
 int phy_xlnx_gem_detect(const struct device *dev)
 {
-	LOG_INF("Gem detect function...");
 	const struct eth_xlnx_gem_dev_cfg *dev_conf = dev->config;
 	struct eth_xlnx_gem_dev_data *dev_data = dev->data;
 
@@ -922,7 +919,6 @@ int phy_xlnx_gem_detect(const struct device *dev)
 	 * p. 517
 	 */
 	for (phy_curr_addr = phy_first_addr; phy_curr_addr <= phy_last_addr; phy_curr_addr++) {
-		LOG_DBG("Loop %u", phy_curr_addr);
 		/* Read the upper & lower PHY ID 16-bit words */
 		phy_data = phy_xlnx_gem_mdio_read(dev_conf->base_addr, phy_curr_addr,
 						  PHY_IDENTIFIER_1_REGISTER);
