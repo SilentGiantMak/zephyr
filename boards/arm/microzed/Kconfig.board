@@ -5,4 +5,4 @@
 
 config BOARD_MICROZED 
 	bool "Microzed board"
-	depends on SOC_XILINX_XC7Z020
+	depends on SOC_XILINX_XC7Z010
