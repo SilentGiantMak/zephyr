@@ -29,33 +29,4 @@
 			bias-disable;
 		};
 	};
-
-	pinctrl_eth0: pinctrl-eth0 {
-		mux {
-			groups = "ethernet0_0_grp";
-			function = "ethernet0";
-		};
-
-		conf {
-			groups = "ethernet0_0_grp";
-			/* General configuration */	
-			power-source = <IO_STANDARD_LVCMOS18>;
-		};
-
-		conf-rx-data {
-			pins = "MIO23","MIO24","MIO25","MIO26";
-		};
-
-		conf-tx-data {
-			pins = "MIO17","MIO18","MIO19","MIO20";
-		};
-
-		conf-tx {
-			pins = "MIO16","MIO21";
-		};
-
-		conf-rx {
-			pins = "MIO22","MIO27";
-		};
-	};
 };
