@@ -29,4 +29,27 @@
 			bias-disable;
 		};
 	};
+
+	pinctrl_uart0_default: uart0-default {
+		mux {
+			groups = "uart0_0_grp";
+			function = "uart0";
+		};
+
+		conf {
+			groups = "uart0_0_grp";
+			slew-rate = <IO_SPEED_SLOW>;
+			power-source = <IO_STANDARD_LVCMOS18>;
+		};
+
+		conf-rx {
+			pins = "MIO10";
+			bias-high-impedance;
+		};
+
+		conf-tx {
+			pins = "MIO11";
+			bias-disable;
+		};
+	};
 };
