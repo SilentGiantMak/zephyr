@@ -292,6 +292,13 @@ static int uart_xlnx_ps_init(const struct device *dev)
 	DEVICE_MMIO_MAP(dev, K_MEM_CACHE_NONE);
 	uintptr_t reg_base = DEVICE_MMIO_GET(dev);
 
+#if defined(CONFIG_SOC_FAMILY_XILINX_ZYNQ7000)
+	// turn on the AMBA clock for both UART controllers
+	reg_val = sys_read32(0xF800012C);
+	reg_val |= 0x300000;
+	sys_write32(reg_val, 0xF800012C);
+#endif
+
 	/* Disable RX/TX before changing any configuration data */
 	xlnx_ps_disable_uart(reg_base);
 
@@ -301,6 +308,11 @@ static int uart_xlnx_ps_init(const struct device *dev)
 		return err;
 	}
 #endif
+
+	// set the ref clock - turn on UART 0 reference clock
+	reg_val = sys_read32(0xF8000154);
+	reg_val |= 0x1;
+	sys_write32(reg_val, 0xF8000154);
 
 	/* Set initial character length / start/stop bit / parity configuration */
 	reg_val = sys_read32(reg_base + XUARTPS_MR_OFFSET);
