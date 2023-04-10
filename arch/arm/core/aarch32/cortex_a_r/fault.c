@@ -9,6 +9,8 @@
 #include <kernel_internal.h>
 #include <zephyr/exc_handle.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/arch/arm/aarch32/gdbstub.h>
+
 LOG_MODULE_DECLARE(os, CONFIG_KERNEL_LOG_LEVEL);
 
 #define FAULT_DUMP_VERBOSE	(CONFIG_FAULT_DUMP == 2)
@@ -243,6 +245,16 @@ bool z_arm_fault_prefetch(z_arch_esf_t *esf)
 	/* Read Instruction Fault Address Register (IFAR) */
 	uint32_t ifar = __get_IFAR();
 
+#if defined(CONFIG_GDBSTUB)
+	/* The BKPT instruction could have caused a software breakpoint */
+	if (fs == 0x2)
+	{
+		/* Debug event, call the gdbstub handler */
+		z_gdb_entry(esf);
+		/* Non-fatal error, restore the context */
+		return false;
+	}
+#endif
 	/* Print fault information*/
 	LOG_ERR("***** PREFETCH ABORT *****");
 	if (FAULT_DUMP_VERBOSE) {
