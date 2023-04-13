@@ -85,17 +85,46 @@ void arch_gdb_step(void)
 	/* any access control for now, breakpoint enable */
 	reg_val |= (0x3 & DBGDBCR_SUPERVISOR_ACCESS_MASK) << DBGDBCR_SUPERVISOR_ACCESS_SHIFT;
 	reg_val |= DBGDBCR_BRK_EN_MASK;
-    __asm__ volatile("mcr p14, 0, %0, c0, c0, 5" ::"r"(reg_val) :);
+	__asm__ volatile("mcr p14, 0, %0, c0, c0, 5" ::"r"(reg_val) :);
 }
 
 size_t arch_gdb_reg_readall(struct gdb_ctx *ctx, uint8_t *buf, size_t buflen)
 {
-	// TODO
+	int ret = 0;
+	/* Write cached registers to the buf array */
+	memset(buf, 'x', buflen);
+	for (int i = 0; i < GDB_STUB_NUM_REGISTERS; i++) {
+		/* offset inside the packet */
+		int r = bin2hex((const uint8_t *)(ctx->registers + i), 4, buf + packet_pos[i] * 8,
+				8);
+		if (r == 0) {
+			ret = 0;
+			break;
+		}
+		ret += r;
+	}
+	return ret;
 }
 
 size_t arch_gdb_reg_writeall(struct gdb_ctx *ctx, uint8_t *hex, size_t hexlen)
 {
-	// TODO
+	int ret = 0;
+	for (unsigned int i = 0; i < hexlen; i += 8) {
+		if (hex[i] != 'x') {
+			/* check if the stub supports this register */
+			for (unsigned int j = 0; j < GDB_STUB_NUM_REGISTERS; j++) {
+				if (packet_pos[j] != i) {
+					continue;
+				}
+				int r = hex2bin(hex + i * 8, 8, (uint8_t *)(ctx->registers + j), 4);
+				if (r == 0) {
+					return 0;
+				}
+				ret += r;
+			}
+		}
+	}
+	return ret;
 }
 
 size_t arch_gdb_reg_readone(struct gdb_ctx *ctx, uint8_t *buf, size_t buflen, uint32_t regno)
