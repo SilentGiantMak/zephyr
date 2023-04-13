@@ -129,10 +129,36 @@ size_t arch_gdb_reg_writeall(struct gdb_ctx *ctx, uint8_t *hex, size_t hexlen)
 
 size_t arch_gdb_reg_readone(struct gdb_ctx *ctx, uint8_t *buf, size_t buflen, uint32_t regno)
 {
-	// TODO
+	int ret = 0;
+	/* Read one of the registers */
+	if (regno >= GDB_STUB_NUM_REGISTERS) {
+		/* The stub does not support this reg, send error reply */
+		memset(buf, "xxxxxxxx", 8);
+		ret = 8;
+	} else {
+		/* Check which of our registers corresponds to regnum */
+		for (int i = 0; i < GDB_STUB_NUM_REGISTERS; i++) {
+			if (packet_pos[i] == regnum) {
+				ret = bin2hex((uint8_t *)(ctx->registers + i), 4, buf, buflen);
+				break;
+			}
+		}
+	}
+	return ret;
 }
 
 size_t arch_gdb_reg_writeone(struct gdb_ctx *ctx, uint8_t *hex, size_t hexlen, uint32_t regno)
 {
-	// TODO
+	int ret = 0;
+	/* Set the value of a register */
+	if (regno < GDB_STUB_NUM_REGISTERS && hexlen == 8) {
+		/* Again, check the corresponding register index */
+		for (int i = 0; i < GDB_STUB_NUM_REGISTERS; i++) {
+			if (packet_pos[i] == regnum) {
+				ret = hex2bin(hex, hexlen, (uint8_t *)(ctx->registers + i), 4);
+				break;
+			}
+		}
+	}
+	return ret;
 }
