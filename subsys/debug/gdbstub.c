@@ -213,7 +213,7 @@ int arch_gdb_remove_breakpoint(struct gdb_ctx *ctx, uint8_t type,
  */
 static int gdb_send_packet(const uint8_t *data, size_t len)
 {
-	print("S...",0);
+	print("Sending: ",0);
 	uint8_t buf[2];
 	uint8_t checksum = 0;
 
@@ -223,6 +223,7 @@ static int gdb_send_packet(const uint8_t *data, size_t len)
 	/* Send packet data and calculate checksum */
 	while (len-- > 0) {
 		checksum += *data;
+		printch(*data);
 		z_gdb_putchar(*data++);
 	}
 
@@ -238,12 +239,12 @@ static int gdb_send_packet(const uint8_t *data, size_t len)
 	z_gdb_putchar(buf[1]);
 
 	if (z_gdb_getchar() == '+') {
-		print("> Pack sent OK!",len);
+		print("> Pack sent OK! ",len);
 		return 0;
 	}
 
 	/* Just got an invalid response */
-	print("> Pack sent ERR!",len);
+	print("> Pack sent ERR! ",len);
 	return -1;
 }
 
@@ -309,10 +310,8 @@ static int gdb_get_packet(uint8_t *buf, size_t buf_len, size_t *len)
 	z_gdb_putchar('+');
 
 	if (*len >= (buf_len - 1)) {
-		print("< Pack got ERR",0);
 		return -2;
 	} else {
-		print("< Pack got OK",0);
 		return 0;
 	}
 }
