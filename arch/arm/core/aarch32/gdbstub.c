@@ -98,13 +98,21 @@ size_t arch_gdb_reg_readall(struct gdb_ctx *ctx, uint8_t *buf, size_t buflen)
 	memset(buf, 'x', buflen);
 	for (int i = 0; i < GDB_STUB_NUM_REGISTERS; i++) {
 		/* offset inside the packet */
-		int r = bin2hex((const uint8_t *)(ctx->registers + i), 4, buf + packet_pos[i] * 8,
-				8);
+		int pos = packet_pos[i] * 8;
+		int r = bin2hex((const uint8_t *)(ctx->registers + i), 4, buf + pos, buflen - pos);
+		/* remove the newline character */
+		buf[pos + 8] = 'x';
 		if (r == 0) {
 			ret = 0;
 			break;
 		}
 		ret += r;
+	}
+
+	if (ret) {
+		/* since we don't support some floating point registers, set the packet size
+		 * manually */
+		ret = 25 * 8 + 8;
 	}
 	return ret;
 }
