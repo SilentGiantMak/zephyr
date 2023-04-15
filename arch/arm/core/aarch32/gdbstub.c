@@ -20,7 +20,7 @@
 #define DBGDBCR_BRK_EN_MASK		0x1
 
 /* Position of each register in the packet, see GDB code */
-static const int packet_pos[] = {0, 1, 2, 3, 12, 14, 15, 25};
+static const int packet_pos[] = {0, 1, 2, 3, 12, 14, 15, 41};
 
 /* Required struct */
 static struct gdb_ctx ctx;
@@ -112,7 +112,7 @@ size_t arch_gdb_reg_readall(struct gdb_ctx *ctx, uint8_t *buf, size_t buflen)
 	if (ret) {
 		/* since we don't support some floating point registers, set the packet size
 		 * manually */
-		ret = 25 * 8 + 8;
+		ret = 41 * 8 + 8;
 	}
 	return ret;
 }
