@@ -25,9 +25,41 @@ static const int packet_pos[] = {0, 1, 2, 3, 12, 14, 15, 25};
 /* Required struct */
 static struct gdb_ctx ctx;
 
+static void printch(char p)
+{
+	// wait for an empty flag in case the buffer is completely full
+	while ((sys_read32(0xe000102c) & 0x8) == 0) {
+		;
+	}
+	sys_write32((unsigned int)(p), 0xE0001030);
+}
+
+static void print(char *prefix, unsigned num)
+{
+	for (char *p = prefix; *p; p++) {
+		printch(*p);
+	}
+
+	char str[12] = {0};
+	char hex[] = "0123456789abcdef";
+	char *p = str;
+	do {
+		*p++ = hex[num & 0xf];
+		num >>= 4;
+	} while (num > 0);
+	*p++ = 'x';
+	*p = '0';
+	while (p >= str) {
+		printch(*p--);
+	}
+	printch('\r');
+	printch('\n');
+}
+
 /* Wrapper function to save and restore execution context */
 void z_gdb_entry(z_arch_esf_t *esf)
 {
+	printch('G');
 	// TODO add more exception causes - the stub supports just the debug event (0x2)
 	ctx.exception = 0x2;
 	// save the registers
@@ -50,11 +82,13 @@ void z_gdb_entry(z_arch_esf_t *esf)
 	esf->basic.lr = ctx.registers[LR];
 	esf->basic.pc = ctx.registers[PC];
 	esf->basic.xpsr = ctx.registers[SPSR];
+	printch('<');
 }
 
 void arch_gdb_init(void)
 {
 	/* Enable the monitor debug mode */
+	print("Stub init", 0);
 	uint32_t reg_val;
 	__asm__ volatile("mrc p14, 0, %0, c0, c2, 2" : "=r"(reg_val)::);
 	reg_val |= DBGDSCR_MONITOR_MODE_EN;
@@ -98,19 +132,31 @@ size_t arch_gdb_reg_readall(struct gdb_ctx *ctx, uint8_t *buf, size_t buflen)
 	memset(buf, 'x', buflen);
 	for (int i = 0; i < GDB_STUB_NUM_REGISTERS; i++) {
 		/* offset inside the packet */
-		int r = bin2hex((const uint8_t *)(ctx->registers + i), 4, buf + packet_pos[i] * 8,
-				8);
+		int pos = packet_pos[i] * 8;
+		int r = bin2hex((const uint8_t *)(ctx->registers + i), 4, buf + pos, buflen - pos);
+		/* remove the newline character */
+		buf[pos + 8] = 'x';
 		if (r == 0) {
 			ret = 0;
+			print("Bin2Hex ERR!", ret);
 			break;
 		}
 		ret += r;
 	}
+
+	if (ret) {
+		/* since we don't support some floating point registers, set the packet size
+		 * manually */
+		ret = 25 * 8 + 8;
+	}
+	print("RA: ", ret);
+	print(buf,0);
 	return ret;
 }
 
 size_t arch_gdb_reg_writeall(struct gdb_ctx *ctx, uint8_t *hex, size_t hexlen)
 {
+
 	int ret = 0;
 	for (unsigned int i = 0; i < hexlen; i += 8) {
 		if (hex[i] != 'x') {
@@ -127,11 +173,13 @@ size_t arch_gdb_reg_writeall(struct gdb_ctx *ctx, uint8_t *hex, size_t hexlen)
 			}
 		}
 	}
+	print("WA: ", ret);
 	return ret;
 }
 
 size_t arch_gdb_reg_readone(struct gdb_ctx *ctx, uint8_t *buf, size_t buflen, uint32_t regno)
 {
+
 	int ret = 0;
 	/* Read one of the registers */
 	if (regno >= GDB_STUB_NUM_REGISTERS) {
@@ -147,11 +195,13 @@ size_t arch_gdb_reg_readone(struct gdb_ctx *ctx, uint8_t *buf, size_t buflen, ui
 			}
 		}
 	}
+	print("RO: ", ret);
 	return ret;
 }
 
 size_t arch_gdb_reg_writeone(struct gdb_ctx *ctx, uint8_t *hex, size_t hexlen, uint32_t regno)
 {
+
 	int ret = 0;
 	/* Set the value of a register */
 	if (regno < GDB_STUB_NUM_REGISTERS && hexlen == 8) {
@@ -163,5 +213,6 @@ size_t arch_gdb_reg_writeone(struct gdb_ctx *ctx, uint8_t *hex, size_t hexlen, u
 			}
 		}
 	}
+	print("WO: ", ret);
 	return ret;
 }
