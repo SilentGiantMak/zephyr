@@ -57,11 +57,11 @@ static void print(char *prefix, unsigned num)
 }
 
 /* Wrapper function to save and restore execution context */
-void z_gdb_entry(z_arch_esf_t *esf)
+void z_gdb_entry(z_arch_esf_t *esf, unsigned int exc_cause)
 {
-	printch('G');
+	print("--- Entering stub ",0);
 	// TODO add more exception causes - the stub supports just the debug event (0x2)
-	ctx.exception = 0x2;
+	ctx.exception = exc_cause;
 	// save the registers
 	ctx.registers[R0] = esf->basic.r0;
 	ctx.registers[R1] = esf->basic.r1;
@@ -82,13 +82,13 @@ void z_gdb_entry(z_arch_esf_t *esf)
 	esf->basic.lr = ctx.registers[LR];
 	esf->basic.pc = ctx.registers[PC];
 	esf->basic.xpsr = ctx.registers[SPSR];
-	printch('<');
+	print("--- Stub exit. ",0);
 }
 
 void arch_gdb_init(void)
 {
 	/* Enable the monitor debug mode */
-	print("Stub init", 0);
+	print("--- Stub init", 0);
 	uint32_t reg_val;
 	__asm__ volatile("mrc p14, 0, %0, c0, c2, 2" : "=r"(reg_val)::);
 	reg_val |= DBGDSCR_MONITOR_MODE_EN;
@@ -150,7 +150,6 @@ size_t arch_gdb_reg_readall(struct gdb_ctx *ctx, uint8_t *buf, size_t buflen)
 		ret = 41 * 8 + 8;
 	}
 	print("RA: ", ret);
-	print(buf,0);
 	return ret;
 }
 

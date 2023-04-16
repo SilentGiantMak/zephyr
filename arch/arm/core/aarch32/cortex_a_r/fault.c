@@ -10,6 +10,7 @@
 #include <zephyr/exc_handle.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/arch/arm/aarch32/gdbstub.h>
+#include <zephyr/debug/gdbstub.h>
 
 LOG_MODULE_DECLARE(os, CONFIG_KERNEL_LOG_LEVEL);
 
@@ -249,8 +250,9 @@ bool z_arm_fault_prefetch(z_arch_esf_t *esf)
 	/* The BKPT instruction could have caused a software breakpoint */
 	if (fs == 0x2)
 	{
+		sys_write32((unsigned int)('~'),0xE0001030);
 		/* Debug event, call the gdbstub handler */
-		z_gdb_entry(esf);
+		z_gdb_entry(esf, GDB_EXCEPTION_BREAKPOINT);
 		/* Non-fatal error, restore the context */
 		return false;
 	}
@@ -325,6 +327,15 @@ bool z_arm_fault_data(z_arch_esf_t *esf)
 	print_uint32(dfar);
 
 	print_uint32(esf->basic.lr);
+
+#if defined(CONFIG_GDBSTUB)
+	if (fs==0x2)
+	{
+		z_gdb_entry(esf,GDB_EXCEPTION_MEMORY_FAULT);
+		// return false - non-fatal error
+		return false;
+	}
+#endif
 
 	// get the L1 PT descriptor for this address - assume TTBR0 = 0x8000
 	uint32_t l1addr = 0x8000 | ((dfar & 0xFFF00000) >> 18);
