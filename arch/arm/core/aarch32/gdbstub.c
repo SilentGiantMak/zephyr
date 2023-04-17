@@ -25,6 +25,8 @@ static const int packet_pos[] = {0, 1, 2, 3, 12, 14, 15, 41};
 /* Required struct */
 static struct gdb_ctx ctx;
 
+static int first_entry;
+
 /* Wrapper function to save and restore execution context */
 void z_gdb_entry(z_arch_esf_t *esf, unsigned int exc_cause)
 {
@@ -48,13 +50,21 @@ void z_gdb_entry(z_arch_esf_t *esf, unsigned int exc_cause)
 	esf->basic.r3 = ctx.registers[R3];
 	esf->basic.r12 = ctx.registers[R12];
 	esf->basic.lr = ctx.registers[LR];
-	esf->basic.pc = ctx.registers[PC];
+	if (first_entry) {
+		/* The CPU should continue on the next instruction - apply this offset,
+		so that it won't be affected by the bkpt instruction */
+		esf->basic.pc = ctx.registers[PC] + 0x4;
+	} else {
+		esf->basic.pc = ctx.registers[PC];
+	}
+	first_entry = 0;
 	esf->basic.xpsr = ctx.registers[SPSR];
 }
 
 void arch_gdb_init(void)
 {
 	/* Enable the monitor debug mode */
+	first_entry = 1;
 	uint32_t reg_val;
 	__asm__ volatile("mrc p14, 0, %0, c0, c2, 2" : "=r"(reg_val)::);
 	reg_val |= DBGDSCR_MONITOR_MODE_EN;
