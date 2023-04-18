@@ -62,6 +62,9 @@ static void print(char *prefix, unsigned num)
 void z_gdb_entry(z_arch_esf_t *esf, unsigned int exc_cause)
 {
 	print("--- Entering stub ", 0);
+	/* Disable the hardware breapoint in case it was set */
+	__asm__ volatile("mcr p14, 0, %0, c0, c0, 5" ::"r"(0x0) :);
+
 	// TODO add more exception causes - the stub supports just the debug event (0x2)
 	ctx.exception = exc_cause;
 	// save the registers
