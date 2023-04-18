@@ -115,18 +115,19 @@ void arch_gdb_continue(void)
 void arch_gdb_step(void)
 {
 	/* Set the hardware breakpoint TODO */
-	uint32_t reg_val = ctx.registers[PC] + 0x4;
-	print("Setting the brk to ",reg_val);
-	/* set BVR to LR + 0x4, make sure it is word aligned */
+	uint32_t reg_val = ctx.registers[PC];
+	/* set BVR to PC, make sure it is word aligned */
 	reg_val &= ~(0x3);
 	__asm__ volatile("mcr p14, 0, %0, c0, c0, 4" ::"r"(reg_val) :);
 
-	/* Program the BCR */
+	/* Program the BCR for address mismatch */
 	reg_val = 0;
 	/* no linked BRP, match in both secure and non-secure state, match all bytes */
+	reg_val |= (0x4 & DBGDBCR_MEANING_MASK) << DBGDBCR_MEANING_SHIFT;
 	reg_val |= (0xF & DBGDBCR_BYTE_ADDR_MASK) << DBGDBCR_BYTE_ADDR_SHIFT;
-	/* any access control for now, breakpoint enable */
-	reg_val |= (0x3 & DBGDBCR_SUPERVISOR_ACCESS_MASK) << DBGDBCR_SUPERVISOR_ACCESS_SHIFT;
+	/* Active only in system, user and supervisor modes */
+	reg_val |= (0x0 & DBGDBCR_SUPERVISOR_ACCESS_MASK) << DBGDBCR_SUPERVISOR_ACCESS_SHIFT;
+	/* Breakpoint enable */
 	reg_val |= DBGDBCR_BRK_EN_MASK;
 	__asm__ volatile("mcr p14, 0, %0, c0, c0, 5" ::"r"(reg_val) :);
 }
