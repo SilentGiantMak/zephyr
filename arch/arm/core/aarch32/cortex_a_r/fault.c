@@ -215,6 +215,11 @@ bool z_arm_fault_undef_instruction(z_arch_esf_t *esf)
 #endif
 	sys_write32((unsigned int)('I'),0xE0001030);
 
+#if defined(CONFIG_GDBSTUB)
+	z_gdb_entry(esf,GDB_EXCEPTION_INVALID_INSTRUCTION);
+	/* Still is fatal fault, continue */
+#endif
+
 	/* Print fault information */
 	LOG_ERR("***** UNDEFINED INSTRUCTION ABORT *****");
 
@@ -326,15 +331,14 @@ bool z_arm_fault_data(z_arch_esf_t *esf)
 	// 0x18
 	print_uint32(dfar);
 
-	print_uint32(esf->basic.lr);
+	print_uint32(esf->basic.pc);
 
 #if defined(CONFIG_GDBSTUB)
-	if (fs==0x2)
-	{
-		z_gdb_entry(esf,GDB_EXCEPTION_MEMORY_FAULT);
-		// return false - non-fatal error
-		return false;
-	}
+
+	z_gdb_entry(esf,GDB_EXCEPTION_MEMORY_FAULT);
+	// return false - non-fatal error
+	return false;
+	
 #endif
 
 	// get the L1 PT descriptor for this address - assume TTBR0 = 0x8000

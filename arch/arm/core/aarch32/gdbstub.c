@@ -91,18 +91,18 @@ void z_gdb_entry(z_arch_esf_t *esf, unsigned int exc_cause)
 	}
 	first_entry = 0;
 	esf->basic.xpsr = ctx.registers[SPSR];
-	print("--- Stub exit. ", 0);
 }
 
 void arch_gdb_init(void)
 {
-	/* Enable the monitor debug mode */
 	print("--- Stub init", 0);
 	first_entry = 1;
 	uint32_t reg_val;
+	/* Enable the monitor debug mode */
 	__asm__ volatile("mrc p14, 0, %0, c0, c2, 2" : "=r"(reg_val)::);
 	reg_val |= DBGDSCR_MONITOR_MODE_EN;
 	__asm__ volatile("mcr p14, 0, %0, c0, c2, 2" ::"r"(reg_val) :);
+
 	/* Generate the Prefetch abort exception */
 	__asm__ volatile("BKPT");
 }
@@ -114,20 +114,16 @@ void arch_gdb_continue(void)
 
 void arch_gdb_step(void)
 {
-	/* Set the hardware breakpoint */
-	uint32_t reg_val = ctx.registers[LR] + 0x4;
+	/* Set the hardware breakpoint TODO */
+	uint32_t reg_val = ctx.registers[PC] + 0x4;
+	print("Setting the brk to ",reg_val);
 	/* set BVR to LR + 0x4, make sure it is word aligned */
 	reg_val &= ~(0x3);
 	__asm__ volatile("mcr p14, 0, %0, c0, c0, 4" ::"r"(reg_val) :);
 
 	/* Program the BCR */
 	reg_val = 0;
-	/* no addr mask, instruction address match mode */
-	reg_val |= (0x0 & DBGDBCR_ADDR_MASK_MASK) << DBGDBCR_ADDR_MASK_SHIFT;
-	reg_val |= (0x0 & DBGDBCR_MEANING_MASK) << DBGDBCR_MEANING_SHIFT;
 	/* no linked BRP, match in both secure and non-secure state, match all bytes */
-	reg_val |= (0x0 & DBGDBCR_LINKED_BRP_MASK) << DBGDBCR_LINKED_BRP_SHIFT;
-	reg_val |= (0x0 & DBGDBCR_SECURE_STATE_MASK) << DBGDBCR_SECURE_STATE_SHIFT;
 	reg_val |= (0xF & DBGDBCR_BYTE_ADDR_MASK) << DBGDBCR_BYTE_ADDR_SHIFT;
 	/* any access control for now, breakpoint enable */
 	reg_val |= (0x3 & DBGDBCR_SUPERVISOR_ACCESS_MASK) << DBGDBCR_SUPERVISOR_ACCESS_SHIFT;
