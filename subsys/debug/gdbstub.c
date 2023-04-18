@@ -36,7 +36,7 @@ LOG_MODULE_REGISTER(gdbstub);
 #define GDB_ERROR_MEMORY    "E14"
 #define GDB_ERROR_OVERFLOW  "E22"
 
-static bool not_first_start;
+static int not_first_start;
 
 /* Empty memory region array */
 __weak const struct gdb_mem_region gdb_mem_region_array[0];
@@ -213,7 +213,6 @@ int arch_gdb_remove_breakpoint(struct gdb_ctx *ctx, uint8_t type,
  */
 static int gdb_send_packet(const uint8_t *data, size_t len)
 {
-	print("Sending: ",0);
 	uint8_t buf[2];
 	uint8_t checksum = 0;
 
@@ -223,7 +222,6 @@ static int gdb_send_packet(const uint8_t *data, size_t len)
 	/* Send packet data and calculate checksum */
 	while (len-- > 0) {
 		checksum += *data;
-		printch(*data);
 		z_gdb_putchar(*data++);
 	}
 
@@ -231,7 +229,6 @@ static int gdb_send_packet(const uint8_t *data, size_t len)
 	z_gdb_putchar('#');
 
 	if (gdb_bin2hex(&checksum, 1, buf, sizeof(buf)) == 0) {
-		print("> Pack bin2hex ERR!",0);
 		return -1;
 	}
 
@@ -239,12 +236,10 @@ static int gdb_send_packet(const uint8_t *data, size_t len)
 	z_gdb_putchar(buf[1]);
 
 	if (z_gdb_getchar() == '+') {
-		print("> Pack sent OK! ",len);
 		return 0;
 	}
 
 	/* Just got an invalid response */
-	print("> Pack sent ERR! ",len);
 	return -1;
 }
 
@@ -584,6 +579,9 @@ static int gdb_mem_write(const uint8_t *buf, uintptr_t addr,
 			 size_t len)
 {
 	print("W",0);
+	print("\nWrite at: ",addr);
+	print("Write len: ",len);
+	print("Write: ",buf);
 	uint8_t align;
 	int ret;
 
@@ -628,7 +626,8 @@ static int gdb_send_exception(uint8_t *buf, size_t len, uint8_t exception)
  */
 int z_gdb_main_loop(struct gdb_ctx *ctx)
 {
-	print("Main stub loop.",0);
+	const int nfs = not_first_start;
+	print("Main stub loop ",not_first_start);
 	/* 'static' modifier is intentional so the buffer
 	 * is not declared inside running stack, which may
 	 * not have enough space.
@@ -646,11 +645,14 @@ int z_gdb_main_loop(struct gdb_ctx *ctx)
 	/* Only send exception if this is not the first
 	 * GDB break.
 	 */
-	if (not_first_start) {
+	print("Var: ",not_first_start);
+	print("Our var: ",nfs);
+	if (nfs) {
+		print("NFS ",0);
 		gdb_send_exception(buf, sizeof(buf), ctx->exception);
 	} else {
-		print("NFS",0);
-		not_first_start = true;
+		print("FS ",0);
+		not_first_start = 1;
 	}
 
 #define CHECK_ERROR(condition)			\
@@ -695,7 +697,7 @@ int z_gdb_main_loop(struct gdb_ctx *ctx)
 			continue;
 		}
 		printch(buf[0]);
-		print(" -- got pack!",0);
+		print(" -- got pack! ",0);
 		
 
 		if (pkt_len == 0) {
@@ -884,6 +886,7 @@ int z_gdb_main_loop(struct gdb_ctx *ctx)
 int gdb_init(const struct device *arg)
 {
 	print("GDB init...",0);
+	not_first_start=0;
 	ARG_UNUSED(arg);
 
 	if (z_gdb_backend_init() == -1) {

@@ -180,9 +180,12 @@ extern int arch_swap(unsigned int key);
 
 static inline int z_swap_irqlock(unsigned int key)
 {
+	sys_write32((unsigned int)('*'),0xE0001030);
 	int ret;
 	z_check_stack_sentinel();
+	sys_write32((unsigned int)('&'),0xE0001030);
 	ret = arch_swap(key);
+	sys_write32((unsigned int)('^'),0xE0001030);
 	return ret;
 }
 
