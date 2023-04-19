@@ -196,7 +196,8 @@ bool z_arm_fault_undef_instruction(z_arch_esf_t *esf)
 
 #if defined(CONFIG_GDBSTUB)
 	z_gdb_entry(esf,GDB_EXCEPTION_INVALID_INSTRUCTION);
-	/* Still is fatal fault, continue */
+	/* Might not be fatal if GDB stub placed it in the code. */
+	return false;
 #endif
 
 	/* Print fault information */
