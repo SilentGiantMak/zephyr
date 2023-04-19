@@ -19,6 +19,8 @@
 #define DBGDBCR_SUPERVISOR_ACCESS_SHIFT 1
 #define DBGDBCR_BRK_EN_MASK		0x1
 
+#define SPSR_REG_IDX 25
+
 /* Position of each register in the packet, see GDB code */
 static const int packet_pos[] = {0, 1, 2, 3, 12, 14, 15, 41};
 
@@ -153,11 +155,13 @@ size_t arch_gdb_reg_writeall(struct gdb_ctx *ctx, uint8_t *hex, size_t hexlen)
 size_t arch_gdb_reg_readone(struct gdb_ctx *ctx, uint8_t *buf, size_t buflen, uint32_t regno)
 {
 	int ret = 0;
-	/* Read one of the registers */
-	if (regno >= GDB_STUB_NUM_REGISTERS) {
-		/* The stub does not support this reg, send error reply */
-		memset(buf, "xxxxxxxx", 8);
-		ret = 8;
+	/* Fill the buffer with 'x' in case the stub does not support the required register */
+	memset(buf, "xxxxxxxx", 8);
+	ret = 8;
+	if (regno == SPSR_REG_IDX) {
+		/* The SPSR register is at the end, we have to check separately */
+		ret = bin2hex((uint8_t *)(ctx->registers + GDB_STUB_NUM_REGISTERS - 1), 4, buf,
+			      buflen);
 	} else {
 		/* Check which of our registers corresponds to regnum */
 		for (int i = 0; i < GDB_STUB_NUM_REGISTERS; i++) {
@@ -174,7 +178,11 @@ size_t arch_gdb_reg_writeone(struct gdb_ctx *ctx, uint8_t *hex, size_t hexlen, u
 {
 	int ret = 0;
 	/* Set the value of a register */
-	if (regno < GDB_STUB_NUM_REGISTERS && hexlen == 8) {
+	if (hexlen != 8) {
+		return ret;
+	}
+
+	if (regno < (GDB_STUB_NUM_REGISTERS - 1)) {
 		/* Again, check the corresponding register index */
 		for (int i = 0; i < GDB_STUB_NUM_REGISTERS; i++) {
 			if (packet_pos[i] == regno) {
@@ -182,6 +190,9 @@ size_t arch_gdb_reg_writeone(struct gdb_ctx *ctx, uint8_t *hex, size_t hexlen, u
 				break;
 			}
 		}
+	} else if (regno == SPSR_REG_IDX) {
+		ret = hex2bin(hex, hexlen, (uint8_t *)(ctx->registers + GDB_STUB_NUM_REGISTERS - 1),
+			      4);
 	}
 	return ret;
 }
