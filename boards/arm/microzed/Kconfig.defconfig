@@ -9,7 +9,7 @@ config BOARD
 	default "microzed"
 
 config SYS_CLOCK_TICKS_PER_SEC
-	default 1000
+	default 100
 
 if GDBSTUB
 
