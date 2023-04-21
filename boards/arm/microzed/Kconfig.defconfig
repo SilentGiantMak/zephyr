@@ -16,6 +16,9 @@ if GDBSTUB
 config GDBSTUB_BUF_SZ
 	default 512
 
+config EXTRA_EXCEPTION_INFO
+	default y
+
 endif # GDBSTUB
 
 endif # BOARD_MICROZED

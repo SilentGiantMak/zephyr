@@ -22,11 +22,12 @@
 #define SPSR_REG_IDX 25
 
 /* Position of each register in the packet, see GDB code */
-static const int packet_pos[] = {0, 1, 2, 3, 12, 14, 15, 41};
+static const int packet_pos[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 41};
 
 /* Required struct */
 static struct gdb_ctx ctx;
 
+/* True if entering after a BKPT instruction */
 static int first_entry;
 
 static void printch(char p)
@@ -67,13 +68,22 @@ void z_gdb_entry(z_arch_esf_t *esf, unsigned int exc_cause)
 	/* Disable the hardware breapoint in case it was set */
 	__asm__ volatile("mcr p14, 0, %0, c0, c0, 5" ::"r"(0x0) :);
 
-	// TODO add more exception causes - the stub supports just the debug event (0x2)
 	ctx.exception = exc_cause;
 	// save the registers
 	ctx.registers[R0] = esf->basic.r0;
 	ctx.registers[R1] = esf->basic.r1;
 	ctx.registers[R2] = esf->basic.r2;
 	ctx.registers[R3] = esf->basic.r3;
+	/* We are going to assume, that the EXTRA_EXCEPTION_INFO kernel option is set */
+	ctx.registers[R4] = esf->extra_info.callee->v1;
+	ctx.registers[R5] = esf->extra_info.callee->v2;
+	ctx.registers[R6] = esf->extra_info.callee->v3;
+	ctx.registers[R7] = esf->extra_info.callee->v4;
+	ctx.registers[R8] = esf->extra_info.callee->v5;
+	ctx.registers[R9] = esf->extra_info.callee->v6;
+	ctx.registers[R10] = esf->extra_info.callee->v7;
+	ctx.registers[R11] = esf->extra_info.callee->v8;
+	ctx.registers[R13] = esf->extra_info.callee->psp;
 	ctx.registers[R12] = esf->basic.r12;
 	ctx.registers[LR] = esf->basic.lr;
 	ctx.registers[PC] = esf->basic.pc;
@@ -87,6 +97,8 @@ void z_gdb_entry(z_arch_esf_t *esf, unsigned int exc_cause)
 	esf->basic.r3 = ctx.registers[R3];
 	esf->basic.r12 = ctx.registers[R12];
 	esf->basic.lr = ctx.registers[LR];
+	/* The registers part of EXTRA_EXCEPTION_INFO are read-only - the excpetion return code
+	does not restore them, thus we don't need to do so here */
 	if (first_entry) {
 		/* The CPU should continue on the next instruction - apply this offset,
 		so that it won't be affected by the bkpt instruction */
