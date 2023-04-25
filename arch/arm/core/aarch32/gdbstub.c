@@ -9,6 +9,7 @@
 #define DBGDBCR_MEANING_MASK		0x7
 #define DBGDBCR_MEANING_SHIFT		20
 #define DBGDBCR_MEANING_ADDR_MATCH	0x0
+#define DBGDBCR_MEANING_ADDR_MISMATCH	0x4
 #define DBGDBCR_LINKED_BRP_MASK		0xF
 #define DBGDBCR_LINKED_BRP_SHIFT	16
 #define DBGDBCR_SECURE_STATE_MASK	0x3
@@ -19,7 +20,8 @@
 #define DBGDBCR_SUPERVISOR_ACCESS_SHIFT 1
 #define DBGDBCR_BRK_EN_MASK		0x1
 
-#define SPSR_REG_IDX 25
+#define SPSR_REG_IDX	25
+#define GDB_PACKET_SIZE (41 * 8 + 8)
 
 /* Position of each register in the packet, see GDB code */
 static const int packet_pos[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 41};
@@ -99,19 +101,17 @@ void arch_gdb_continue(void)
 
 void arch_gdb_step(void)
 {
-	/* Set the hardware breakpoint TODO */
+	/* Set the hardware breakpoint */
 	uint32_t reg_val = ctx.registers[PC];
-	/* set BVR to PC, make sure it is word aligned */
+	/* set BVR (Breakpoint value register) to PC, make sure it is word aligned */
 	reg_val &= ~(0x3);
 	__asm__ volatile("mcr p14, 0, %0, c0, c0, 4" ::"r"(reg_val) :);
 
-	/* Program the BCR for address mismatch */
 	reg_val = 0;
-	/* no linked BRP, match in both secure and non-secure state, match all bytes */
-	reg_val |= (0x4 & DBGDBCR_MEANING_MASK) << DBGDBCR_MEANING_SHIFT;
+	/* Address mismatch */
+	reg_val |= (DBGDBCR_MEANING_ADDR_MISMATCH & DBGDBCR_MEANING_MASK) << DBGDBCR_MEANING_SHIFT;
+	/* Match any other instruction */
 	reg_val |= (0xF & DBGDBCR_BYTE_ADDR_MASK) << DBGDBCR_BYTE_ADDR_SHIFT;
-	/* Active only in system, user and supervisor modes */
-	reg_val |= (0x0 & DBGDBCR_SUPERVISOR_ACCESS_MASK) << DBGDBCR_SUPERVISOR_ACCESS_SHIFT;
 	/* Breakpoint enable */
 	reg_val |= DBGDBCR_BRK_EN_MASK;
 	__asm__ volatile("mcr p14, 0, %0, c0, c0, 5" ::"r"(reg_val) :);
@@ -120,13 +120,13 @@ void arch_gdb_step(void)
 size_t arch_gdb_reg_readall(struct gdb_ctx *ctx, uint8_t *buf, size_t buflen)
 {
 	int ret = 0;
-	/* Write cached registers to the buf array */
+	/* All other register are not supported */
 	memset(buf, 'x', buflen);
 	for (int i = 0; i < GDB_STUB_NUM_REGISTERS; i++) {
 		/* offset inside the packet */
 		int pos = packet_pos[i] * 8;
 		int r = bin2hex((const uint8_t *)(ctx->registers + i), 4, buf + pos, buflen - pos);
-		/* remove the newline character */
+		/* remove the newline character placed by the bin2hex function */
 		buf[pos + 8] = 'x';
 		if (r == 0) {
 			ret = 0;
@@ -138,7 +138,7 @@ size_t arch_gdb_reg_readall(struct gdb_ctx *ctx, uint8_t *buf, size_t buflen)
 	if (ret) {
 		/* since we don't support some floating point registers, set the packet size
 		 * manually */
-		ret = 41 * 8 + 8;
+		ret = GDB_PACKET_SIZE;
 	}
 	return ret;
 }
