@@ -4,5 +4,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 config BOARD_MICROZED 
-	bool "Microzed board"
-	depends on SOC_XILINX_XC7Z010
+	bool "MicroZed board"
+	depends on SOC_XILINX_XC7Z010 || SOC_XILINX_XC7Z020
+

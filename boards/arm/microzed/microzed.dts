@@ -101,6 +101,8 @@
 	clock-frequency = <1000000000>;
 	mdc-divider = <XLNX_GEM_MDC_DIVIDER_48>;
 	init-mdio-phy;
+	/* MAC address property to prevent compilation errors - the driver
+	uses a macro generated from this property */
 	local-mac-address = [ c6 8c 2b 3d 18 1e ];
 };
 
