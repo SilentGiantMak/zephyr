@@ -44,36 +44,38 @@ __weak const struct gdb_mem_region gdb_mem_region_array[0];
 /* Number of memory regions, default to 0 */
 __weak const size_t gdb_mem_num_regions;
 
-static void printch(char p)
-{
-	// wait for an empty flag in case the buffer is completely full
-	while ((sys_read32(0xe000102c) & 0x8) == 0) {
-		;
+#if DBG_PRINT == 1
+	#define printch(p) {
+		// wait for an empty flag in case the buffer is completely full
+		while ((sys_read32(0xe000102c) & 0x8) == 0) {
+			;
+		}
+		sys_write32((unsigned int)(p), 0xE0001030);
 	}
-	sys_write32((unsigned int)(p), 0xE0001030);
-}
+	#define print(prefix, num) {
+			for (char *p = prefix; *p; p++) {
+			printch(*p);
+		}
 
-static void print(char *prefix, unsigned num)
-{
-	for (char *p = prefix; *p; p++) {
-		printch(*p);
+		char str[12] = {0};
+		char hex[] = "0123456789abcdef";
+		char *p = str;
+		do {
+			*p++ = hex[num & 0xf];
+			num >>= 4;
+		} while (num > 0);
+		*p++ = 'x';
+		*p = '0';
+		while (p >= str) {
+			printch(*p--);
+		}
+		printch('\r');
+		printch('\n');
 	}
-
-	char str[12] = {0};
-	char hex[] = "0123456789abcdef";
-	char *p = str;
-	do {
-		*p++ = hex[num & 0xf];
-		num >>= 4;
-	} while (num > 0);
-	*p++ = 'x';
-	*p = '0';
-	while (p >= str) {
-		printch(*p--);
-	}
-	printch('\r');
-	printch('\n');
-}
+#else
+	#define printch(p)
+	#define print(prefix, num)
+#endif
 
 /**
  * Given a starting address and length of a memory block, find a memory
@@ -86,19 +88,17 @@ static void print(char *prefix, unsigned num)
  * @return Pointer to the memory region description if found.
  *         NULL if not found.
  */
-static inline const
-struct gdb_mem_region *find_memory_region(const uintptr_t addr, const size_t len)
+static inline const struct gdb_mem_region *find_memory_region(const uintptr_t addr,
+							      const size_t len)
 {
-	print("[core]: find reg",0);
+	print("[core]: find reg", 0);
 	const struct gdb_mem_region *r, *ret = NULL;
 	unsigned int idx;
 
 	for (idx = 0; idx < gdb_mem_num_regions; idx++) {
 		r = &gdb_mem_region_array[idx];
 
-		if ((addr >= r->start) &&
-		    (addr < r->end) &&
-		    ((addr + len) >= r->start) &&
+		if ((addr >= r->start) && (addr < r->end) && ((addr + len) >= r->start) &&
 		    ((addr + len) < r->end)) {
 			ret = r;
 			break;
@@ -110,7 +110,7 @@ struct gdb_mem_region *find_memory_region(const uintptr_t addr, const size_t len
 
 bool gdb_mem_can_read(const uintptr_t addr, const size_t len, uint8_t *align)
 {
-	print("[core]: can read",0);
+	print("[core]: can read", 0);
 	bool ret = false;
 	const struct gdb_mem_region *r;
 
@@ -125,8 +125,7 @@ bool gdb_mem_can_read(const uintptr_t addr, const size_t len, uint8_t *align)
 	} else {
 		r = find_memory_region(addr, len);
 		if (r != NULL) {
-			if ((r->attributes & GDB_MEM_REGION_READ) ==
-			    GDB_MEM_REGION_READ) {
+			if ((r->attributes & GDB_MEM_REGION_READ) == GDB_MEM_REGION_READ) {
 				if (r->alignment > 0) {
 					*align = r->alignment;
 				} else {
@@ -142,7 +141,7 @@ bool gdb_mem_can_read(const uintptr_t addr, const size_t len, uint8_t *align)
 
 bool gdb_mem_can_write(const uintptr_t addr, const size_t len, uint8_t *align)
 {
-	print("[core]: can write",0);
+	print("[core]: can write", 0);
 	bool ret = false;
 	const struct gdb_mem_region *r;
 
@@ -157,8 +156,7 @@ bool gdb_mem_can_write(const uintptr_t addr, const size_t len, uint8_t *align)
 	} else {
 		r = find_memory_region(addr, len);
 		if (r != NULL) {
-			if ((r->attributes & GDB_MEM_REGION_WRITE) ==
-			    GDB_MEM_REGION_WRITE) {
+			if ((r->attributes & GDB_MEM_REGION_WRITE) == GDB_MEM_REGION_WRITE) {
 				if (r->alignment > 0) {
 					*align = r->alignment;
 				} else {
@@ -191,20 +189,16 @@ size_t gdb_bin2hex(const uint8_t *buf, size_t buflen, char *hex, size_t hexlen)
 	return 2 * buflen;
 }
 
-__weak
-int arch_gdb_add_breakpoint(struct gdb_ctx *ctx, uint8_t type,
-			    uintptr_t addr, uint32_t kind)
+__weak int arch_gdb_add_breakpoint(struct gdb_ctx *ctx, uint8_t type, uintptr_t addr, uint32_t kind)
 {
 	return -2;
 }
 
-__weak
-int arch_gdb_remove_breakpoint(struct gdb_ctx *ctx, uint8_t type,
-			       uintptr_t addr, uint32_t kind)
+__weak int arch_gdb_remove_breakpoint(struct gdb_ctx *ctx, uint8_t type, uintptr_t addr,
+				      uint32_t kind)
 {
 	return -2;
 }
-
 
 /**
  * Add preamble and termination to the given data.
@@ -294,8 +288,8 @@ static int gdb_get_packet(uint8_t *buf, size_t buf_len, size_t *len)
 
 	/* Verify checksum */
 	if (checksum != expected_checksum) {
-		LOG_DBG("Bad checksum. Got 0x%x but was expecting: 0x%x",
-			checksum, expected_checksum);
+		LOG_DBG("Bad checksum. Got 0x%x but was expecting: 0x%x", checksum,
+			expected_checksum);
 		/* NACK packet */
 		z_gdb_putchar('-');
 		return -1;
@@ -312,8 +306,7 @@ static int gdb_get_packet(uint8_t *buf, size_t buf_len, size_t *len)
 }
 
 /* Read memory byte-by-byte */
-static inline int gdb_mem_read_unaligned(uint8_t *buf, size_t buf_len,
-					 uintptr_t addr, size_t len)
+static inline int gdb_mem_read_unaligned(uint8_t *buf, size_t buf_len, uintptr_t addr, size_t len)
 {
 	printch('(');
 	uint8_t data;
@@ -330,8 +323,7 @@ static inline int gdb_mem_read_unaligned(uint8_t *buf, size_t buf_len,
 }
 
 /* Read memory with alignment constraint */
-static inline int gdb_mem_read_aligned(uint8_t *buf, size_t buf_len,
-				       uintptr_t addr, size_t len,
+static inline int gdb_mem_read_aligned(uint8_t *buf, size_t buf_len, uintptr_t addr, size_t len,
 				       uint8_t align)
 {
 	printch('[');
@@ -374,8 +366,7 @@ static inline int gdb_mem_read_aligned(uint8_t *buf, size_t buf_len,
 		 * Read read_sz bytes from memory and
 		 * convert the binary data into hexadecimal.
 		 */
-		count += gdb_bin2hex(&data.b8[pos], read_sz,
-				     buf + count, buf_len - count);
+		count += gdb_bin2hex(&data.b8[pos], read_sz, buf + count, buf_len - count);
 
 		remaining -= read_sz;
 		if (remaining > align) {
@@ -407,8 +398,7 @@ out:
  *
  * @return Number of bytes read from memory, or -1 if error
  */
-static int gdb_mem_read(uint8_t *buf, size_t buf_len,
-			uintptr_t addr, size_t len)
+static int gdb_mem_read(uint8_t *buf, size_t buf_len, uintptr_t addr, size_t len)
 {
 	printch('{');
 	uint8_t align;
@@ -429,12 +419,9 @@ static int gdb_mem_read(uint8_t *buf, size_t buf_len,
 	}
 
 	if (align > 1) {
-		ret = gdb_mem_read_aligned(buf, buf_len,
-					   addr, len,
-					   align);
+		ret = gdb_mem_read_aligned(buf, buf_len, addr, len, align);
 	} else {
-		ret = gdb_mem_read_unaligned(buf, buf_len,
-					     addr, len);
+		ret = gdb_mem_read_unaligned(buf, buf_len, addr, len);
 	}
 
 out:
@@ -443,8 +430,7 @@ out:
 }
 
 /* Write memory byte-by-byte */
-static int gdb_mem_write_unaligned(const uint8_t *buf, uintptr_t addr,
-				   size_t len)
+static int gdb_mem_write_unaligned(const uint8_t *buf, uintptr_t addr, size_t len)
 {
 	printch('<');
 	uint8_t data;
@@ -475,8 +461,7 @@ out:
 }
 
 /* Write memory with alignment constraint */
-static int gdb_mem_write_aligned(const uint8_t *buf, uintptr_t addr,
-				 size_t len, uint8_t align)
+static int gdb_mem_write_aligned(const uint8_t *buf, uintptr_t addr, size_t len, uint8_t align)
 {
 	printch('/');
 	size_t pos, write_sz;
@@ -522,8 +507,7 @@ static int gdb_mem_write_aligned(const uint8_t *buf, uintptr_t addr,
 		 * Write write_sz bytes from memory and
 		 * convert the binary data into hexadecimal.
 		 */
-		size_t cnt = hex2bin(buf, write_sz * 2,
-				     &data.b8[pos], write_sz);
+		size_t cnt = hex2bin(buf, write_sz * 2, &data.b8[pos], write_sz);
 
 		if (cnt == 0) {
 			ret = -1;
@@ -575,13 +559,12 @@ out:
  *
  * @return Number of bytes written to memory, or -1 if error
  */
-static int gdb_mem_write(const uint8_t *buf, uintptr_t addr,
-			 size_t len)
+static int gdb_mem_write(const uint8_t *buf, uintptr_t addr, size_t len)
 {
-	print("W",0);
-	print("\nWrite at: ",addr);
-	print("Write len: ",len);
-	print("Write: ",buf);
+	print("W", 0);
+	print("\nWrite at: ", addr);
+	print("Write len: ", len);
+	print("Write: ", buf);
 	uint8_t align;
 	int ret;
 
@@ -597,7 +580,7 @@ static int gdb_mem_write(const uint8_t *buf, uintptr_t addr,
 	}
 
 out:
-	print("Wrote",0);
+	print("Wrote", 0);
 	return ret;
 }
 
@@ -606,7 +589,7 @@ out:
  */
 static int gdb_send_exception(uint8_t *buf, size_t len, uint8_t exception)
 {
-	print("Sending exc...",0);
+	print("Sending exc...", 0);
 	size_t size;
 
 	*buf = 'T';
@@ -627,7 +610,7 @@ static int gdb_send_exception(uint8_t *buf, size_t len, uint8_t exception)
 int z_gdb_main_loop(struct gdb_ctx *ctx)
 {
 	const int nfs = not_first_start;
-	print("Main stub loop ",not_first_start);
+	print("Main stub loop ", not_first_start);
 	/* 'static' modifier is intentional so the buffer
 	 * is not declared inside running stack, which may
 	 * not have enough space.
@@ -645,37 +628,36 @@ int z_gdb_main_loop(struct gdb_ctx *ctx)
 	/* Only send exception if this is not the first
 	 * GDB break.
 	 */
-	print("Var: ",not_first_start);
-	print("Our var: ",nfs);
+	print("Var: ", not_first_start);
+	print("Our var: ", nfs);
 	if (nfs) {
-		print("NFS ",0);
+		print("NFS ", 0);
 		gdb_send_exception(buf, sizeof(buf), ctx->exception);
 	} else {
-		print("FS ",0);
+		print("FS ", 0);
 		not_first_start = 1;
 	}
 
-#define CHECK_ERROR(condition)			\
-	{					\
-		if ((condition)) {		\
-			state = ERROR;		\
-			break;			\
-		}				\
+#define CHECK_ERROR(condition)                                                                     \
+	{                                                                                          \
+		if ((condition)) {                                                                 \
+			state = ERROR;                                                             \
+			break;                                                                     \
+		}                                                                                  \
 	}
 
-#define CHECK_SYMBOL(c)					\
-	{							\
-		CHECK_ERROR(ptr == NULL || *ptr != (c));	\
-		ptr++;						\
+#define CHECK_SYMBOL(c)                                                                            \
+	{                                                                                          \
+		CHECK_ERROR(ptr == NULL || *ptr != (c));                                           \
+		ptr++;                                                                             \
 	}
 
-#define CHECK_UINT(arg)							\
-	{								\
-		arg = strtoul((const char *)ptr, (char **)&ptr, 16);	\
-		CHECK_ERROR(ptr == NULL);				\
+#define CHECK_UINT(arg)                                                                            \
+	{                                                                                          \
+		arg = strtoul((const char *)ptr, (char **)&ptr, 16);                               \
+		CHECK_ERROR(ptr == NULL);                                                          \
 	}
 
-	
 	while (state == RECEIVING) {
 		uint8_t *ptr;
 		size_t data_len, pkt_len;
@@ -683,7 +665,7 @@ int z_gdb_main_loop(struct gdb_ctx *ctx)
 		uint32_t type;
 		int ret;
 
-		print("Waiting for packets...",0);
+		print("Waiting for packets...", 0);
 		ret = gdb_get_packet(buf, sizeof(buf), &pkt_len);
 		if ((ret == -1) || (ret == -2)) {
 			/*
@@ -692,13 +674,12 @@ int z_gdb_main_loop(struct gdb_ctx *ctx)
 			 * -1: Checksum error.
 			 * -2: Packet too big.
 			 */
-			print("Pack error!",0);
+			print("Pack error!", 0);
 			gdb_send_packet(GDB_ERROR_GENERAL, 3);
 			continue;
 		}
 		printch(buf[0]);
-		print(" -- got pack! ",0);
-		
+		print(" -- got pack! ", 0);
 
 		if (pkt_len == 0) {
 			continue;
@@ -833,11 +814,9 @@ int z_gdb_main_loop(struct gdb_ctx *ctx)
 			CHECK_UINT(data_len);
 
 			if (buf[0] == 'Z') {
-				ret = arch_gdb_add_breakpoint(ctx, type,
-							      addr, data_len);
+				ret = arch_gdb_add_breakpoint(ctx, type, addr, data_len);
 			} else if (buf[0] == 'z') {
-				ret = arch_gdb_remove_breakpoint(ctx, type,
-								 addr, data_len);
+				ret = arch_gdb_remove_breakpoint(ctx, type, addr, data_len);
 			}
 
 			if (ret == -2) {
@@ -851,11 +830,9 @@ int z_gdb_main_loop(struct gdb_ctx *ctx)
 
 			break;
 
-
 		/* What cause the pause  */
 		case '?':
-			gdb_send_exception(buf, sizeof(buf),
-					   ctx->exception);
+			gdb_send_exception(buf, sizeof(buf), ctx->exception);
 			break;
 
 		/*
@@ -885,8 +862,8 @@ int z_gdb_main_loop(struct gdb_ctx *ctx)
 
 int gdb_init(const struct device *arg)
 {
-	print("GDB init...",0);
-	not_first_start=0;
+	print("GDB init...", 0);
+	not_first_start = 0;
 	ARG_UNUSED(arg);
 
 	if (z_gdb_backend_init() == -1) {

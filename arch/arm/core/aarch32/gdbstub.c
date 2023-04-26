@@ -172,7 +172,6 @@ size_t arch_gdb_reg_readall(struct gdb_ctx *ctx, uint8_t *buf, size_t buflen)
 		 * manually */
 		ret = GDB_PACKET_SIZE;
 	}
-	print("RA: ", ret);
 	return ret;
 }
 
@@ -195,7 +194,6 @@ size_t arch_gdb_reg_writeall(struct gdb_ctx *ctx, uint8_t *hex, size_t hexlen)
 			}
 		}
 	}
-	print("WA: ", ret);
 	return ret;
 }
 
@@ -220,7 +218,6 @@ size_t arch_gdb_reg_readone(struct gdb_ctx *ctx, uint8_t *buf, size_t buflen, ui
 		}
 	}
 
-	print("RO: ", ret);
 	return ret;
 }
 
@@ -245,6 +242,5 @@ size_t arch_gdb_reg_writeone(struct gdb_ctx *ctx, uint8_t *hex, size_t hexlen, u
 		ret = hex2bin(hex, hexlen, (uint8_t *)(ctx->registers + GDB_STUB_NUM_REGISTERS - 1),
 			      4);
 	}
-	print("WO: ", ret);
 	return ret;
 }
