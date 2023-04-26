@@ -16,8 +16,7 @@
 static uint32_t cyc_per_tick;
 #define CYC_PER_TICK cyc_per_tick
 #else
-#define CYC_PER_TICK (uint32_t)(sys_clock_hw_cycles_per_sec() \
-				/ CONFIG_SYS_CLOCK_TICKS_PER_SEC)
+#define CYC_PER_TICK (uint32_t)(sys_clock_hw_cycles_per_sec() / CONFIG_SYS_CLOCK_TICKS_PER_SEC)
 #endif
 
 #if defined(CONFIG_GDBSTUB)
@@ -40,10 +39,41 @@ static uint32_t last_elapsed;
 const int32_t z_sys_timer_irq_for_test = ARM_ARCH_TIMER_IRQ;
 #endif
 
+static void printch(char p)
+{
+	// wait for an empty flag in case the buffer is completely full
+	while ((sys_read32(0xe000102c) & 0x8) == 0) {
+		;
+	}
+	sys_write32((unsigned int)(p), 0xE0001030);
+}
+
+static void print(char *prefix, uint64_t num)
+{
+	for (char *p = prefix; *p; p++) {
+		printch(*p);
+	}
+
+	char str[12] = {0};
+	char hex[] = "0123456789abcdef";
+	char *p = str;
+	do {
+		*p++ = hex[num & 0xf];
+		num >>= 4;
+	} while (num > 0);
+	*p++ = 'x';
+	*p = '0';
+	while (p >= str) {
+		printch(*p--);
+	}
+	printch('\r');
+	printch('\n');
+}
+
 static void arm_arch_timer_compare_isr(const void *arg)
 {
 	ARG_UNUSED(arg);
-
+	printch('.');
 	k_spinlock_key_t key = k_spin_lock(&lock);
 
 #ifdef CONFIG_ARM_ARCH_TIMER_ERRATUM_740657
@@ -70,6 +100,7 @@ static void arm_arch_timer_compare_isr(const void *arg)
 
 	last_cycle += (cycle_diff_t)delta_ticks * CYC_PER_TICK;
 	last_tick += delta_ticks;
+	print("LT: ",last_tick);
 	last_elapsed = 0;
 
 	if (!IS_ENABLED(CONFIG_TICKLESS_KERNEL)) {
@@ -109,6 +140,7 @@ static void arm_arch_timer_compare_isr(const void *arg)
 
 void sys_clock_set_timeout(int32_t ticks, bool idle)
 {
+	print("-Ticks: ",ticks);
 #if defined(CONFIG_TICKLESS_KERNEL)
 
 	if (ticks == K_TICKS_FOREVER) {
@@ -135,10 +167,11 @@ void sys_clock_set_timeout(int32_t ticks, bool idle)
 	uint64_t next_cycle = (last_tick + last_elapsed + ticks) * CYC_PER_TICK;
 
 	arm_arch_timer_set_compare(next_cycle);
+	print("Next: ",next_cycle);
 	arm_arch_timer_set_irq_mask(false);
 	k_spin_unlock(&lock, key);
 
-#else  /* CONFIG_TICKLESS_KERNEL */
+#else /* CONFIG_TICKLESS_KERNEL */
 	ARG_UNUSED(ticks);
 	ARG_UNUSED(idle);
 #endif
@@ -156,6 +189,7 @@ uint32_t sys_clock_elapsed(void)
 	uint32_t delta_ticks = (cycle_diff_t)delta_cycles / CYC_PER_TICK;
 
 	last_elapsed = delta_ticks;
+	print("LE: ",last_elapsed);
 	k_spin_unlock(&lock, key);
 	return delta_ticks;
 }
@@ -209,8 +243,8 @@ static int sys_clock_driver_init(const struct device *dev)
 {
 	ARG_UNUSED(dev);
 
-	IRQ_CONNECT(ARM_ARCH_TIMER_IRQ, ARM_ARCH_TIMER_PRIO,
-		    arm_arch_timer_compare_isr, NULL, ARM_ARCH_TIMER_FLAGS);
+	IRQ_CONNECT(ARM_ARCH_TIMER_IRQ, ARM_ARCH_TIMER_PRIO, arm_arch_timer_compare_isr, NULL,
+		    ARM_ARCH_TIMER_FLAGS);
 	arm_arch_timer_init();
 #ifdef CONFIG_TIMER_READS_ITS_FREQUENCY_AT_RUNTIME
 	cyc_per_tick = sys_clock_hw_cycles_per_sec() / CONFIG_SYS_CLOCK_TICKS_PER_SEC;
@@ -225,5 +259,4 @@ static int sys_clock_driver_init(const struct device *dev)
 	return 0;
 }
 
-SYS_INIT(sys_clock_driver_init, PRE_KERNEL_2,
-	 CONFIG_SYSTEM_CLOCK_INIT_PRIORITY);
+SYS_INIT(sys_clock_driver_init, PRE_KERNEL_2, CONFIG_SYSTEM_CLOCK_INIT_PRIORITY);

@@ -123,7 +123,7 @@ void arch_gdb_init(void)
 	__asm__ volatile("mcr p14, 0, %0, c0, c2, 2" ::"r"(reg_val) :);
 
 	/* Generate the Prefetch abort exception */
-	__asm__ volatile("BKPT");
+	//__asm__ volatile("BKPT");
 }
 
 void arch_gdb_continue(void)
