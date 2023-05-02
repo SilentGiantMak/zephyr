@@ -1,147 +1,89 @@
-.. _zybo:
+.. microzed:
 
-Digilent Zybo
+Avnet MicroZed
 #############
 
 Overview
 ********
 
-The `Digilent Zybo`_ (ZYnq BOard) is a feature-rich, ready-to-use embedded software and digital
-circuit development board. It is built around the Xilinx Zynq-7000 family, which is based on the
-Xilinx All Programmable System-on-Chip (AP SoC) architecture. This architecture tightly integrates a
-dual-core ARM Cortex-A9 processor with Xilinx 7-series Field Programmable Gate Array (FPGA) logic.
+The Avnet MicroZed is a system on module (SOM) based on the Xilinx Zynq-7000 SoC. It
+connects various peripherals with the SoC, which integrates two Cortex-A9 cores, FPGA
+(Programmable Logic) and several interfaces.
 
-.. figure:: zybo-0.jpg
+.. figure:: microzed.jpg
+   :width: 800px
    :align: center
-   :alt: Digilent Zybo
+   :alt: Board Name
 
-   Digilent (Credit: Digilent)
+   Avnet MicroZed (Credit: Avnet)
 
 Hardware
 ********
 
+The MicroZed has the following key features:
+
+- Dual core Cortex-A9
+- 1 GB DDR3 memory
+- 128 MB QSPI Flash
+- 10/100/1000 Ethernet
+- Two 100-pin MicroHeader ports
+- USB-UART bridge via Micro-USB port
+- MicroSD card slot
+- User button, LED
+- 33.333 MHz on-board oscillator
+
 Supported Features
 ==================
 
-The zybo board configuration supports the following hardware features:
+Zephyr supports these interfaces:
 
-+------------+------------+-------------------------------------+
-| Interface  | Controller | Driver/Component                    |
-+============+============+=====================================+
-| GICv1      | on-chip    | ARM generic interrupt controller v1 |
-+------------+------------+-------------------------------------+
-| ARCH TIMER | on-chip    | ARM architected timer               |
-+------------+------------+-------------------------------------+
-| PINCTRL    | on-chip    | pinctrl                             |
-+------------+------------+-------------------------------------+
-| GPIO       | on-chip    | gpio                                |
-+------------+------------+-------------------------------------+
-| UART       | on-chip    | serial port-polling;                |
-|            |            | serial port-interrupt               |
-+------------+------------+-------------------------------------+
+.. list-table::
+   :header-rows: 1
 
-The default configuration can be found in the defconfig file:
-``boards/arm/zybo/zybo_defconfig``.
-
-Other hardware features are not currently supported by the port.
+   * - Interface 
+     - Controller
+     - Driver
+   * - GICv1
+     - on-chip
+     - Arm Generic Interrupt Controller v1 
+   * - ARCH TIMER
+   	 - on-chip
+     - ARM architecture timer
+   * - Triple Timer Counters 
+     - on-chip
+	 - Xilinx PSTTC timer 
+   * - PINCTRL
+	 - on-chip
+	 - pinctrl
+   * - GPIO
+	 - on-chip
+	 - gpio
+   * - UART
+     - on-chip
+	 - serial port-polling, serial port-interrupt
+   * - Ethernet
+   	 - on-chip
+	 - eth-xilinx-gem
 
 Programming and Debugging
 *************************
 
-The Zynq-7000 series SoC needs to be initialized prior to running a Zephyr application. This can be
-achieved in a number of ways (e.g. using the Xilinx First Stage Boot Loader (FSBL), the Xilinx
-Vivado generated ``ps_init.tcl`` JTAG script, Das U-Boot Secondary Program Loader (SPL), ...).
-
-The instructions here use the U-Boot SPL. For further details and instructions for using Das U-Boot
-with Xilinx Zynq-7000 series SoCs, see the following documentation:
-
-- `Das U-Boot Website`_
-- `Using Distro Boot With Xilinx U-Boot`_
-
-Building Das U-Boot
-===================
-
-Clone and build Das U-Boot for the Digilent Zybo:
-
-.. code-block:: console
-
-   git clone -b v2022.04 https://source.denx.de/u-boot/u-boot.git
-   cd u-boot
-   make distclean
-   make xilinx_zynq_virt_defconfig
-   export PATH=/path/to/zephyr-sdk/arm-zephyr-eabi/bin/:$PATH
-   export CROSS_COMPILE=arm-zephyr-eabi-
-   export DEVICE_TREE="zynq-zybo"
-   make
 
 Flashing
 ========
 
-Here is an example for running the :ref:`hello_world` application via JTAG.
+The following example shows how to boot Zephyr using Das U-Boot, a second-stage
+bootloader, which officially supports this board. See the U-boot documentation
+for instructions on how to prepare and flash the bootloader image onto an SD card.
 
-Ensure the board is configured for JTAG boot, open a serial terminal, turn on/reset the board (press
-the ``PS-SRST`` button), and initialize the Zynq-7000 series SoC by uploading and running the U-Boot
-SPL via JTAG.
-
-Next, upload and run the Zephyr application:
-
-.. zephyr-app-commands::
-   :zephyr-app: samples/hello_world
-   :board: zybo
-   :goals: flash
-
-You should see the following message in the terminal:
-
-.. code-block:: console
-
-   *** Booting Zephyr OS vx.xx.x-xxx-gxxxxxxxxxxxx ***
-   Hello World! zybo
-
-Another option is to load and run the :ref:`hello_world` application via U-Boot. Copy
-``u-boot/spl/boot.bin``, ``u-boot/u-boot.img``, and ``zephyr/zephyr.bin`` to a FAT32 formatted
-microSD card, insert the card in the ``SD MICRO`` slot on the Zybo board, ensure the board is
-configured for ``SD`` boot, and turn on the board.
-
-Once U-boot is done initializing, load an run the Zephyr application:
-
-.. code-block:: console
-
-   Zynq> fatload mmc 0 0x0 zephyr.bin
-   817120 bytes read in 56 ms (13.9 MiB/s)
-   Zynq> go 0x0
-   ## Starting application at 0x00000000 ...
-   *** Booting Zephyr OS vx.xx.x-xxx-gxxxxxxxxxxxx ***
-   Hello World! zybo
 
 Debugging
 =========
 
-Here is an example for the :ref:`hello_world` application.
+TODO
 
-Ensure the board is configured for JTAG boot, open a serial terminal, turn on/reset the board (press
-the ``PS-SRST`` button), and initialize the Zynq-7000 series SoC by uploading and running the U-Boot
-SPL via JTAG.
+References
+**********
 
-Next, upload and debug the Zephyr application:
+.. _MicroZed TRM: https://www.avnet.com/wps/wcm/connect/onesite/58eaef36-f0b2-4dd4-8440-540bdc2acd3d/5276-MicroZed-HW-UG-v1-7-V1.pdf?MOD=AJPERES&CACHEID=ROOTWORKSPACE.Z18_NA5A1I41L0ICD0ABNDMDDG0000-58eaef36-f0b2-4dd4-8440-540bdc2acd3d-nDjezWU
 
-.. zephyr-app-commands::
-   :zephyr-app: samples/hello_world
-   :board: zybo
-   :goals: debug
-
-Step through the application in your debugger, and you should see the following message in the
-terminal:
-
-.. code-block:: console
-
-   *** Booting Zephyr OS vx.x.x-xxx-gxxxxxxxxxxxx ***
-   Hello World! zybo
-
-.. _Digilent Zybo:
-   https://digilent.com/reference/programmable-logic/zybo/start
-
-.. _Das U-Boot Website:
-   https://www.denx.de/wiki/U-Boot
-
-.. _Using Distro Boot With Xilinx U-Boot:
-   https://xilinx-wiki.atlassian.net/wiki/spaces/A/pages/749142017/Using+Distro+Boot+With+Xilinx+U-Boot
