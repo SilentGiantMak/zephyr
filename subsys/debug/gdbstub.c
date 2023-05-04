@@ -25,16 +25,16 @@ LOG_MODULE_REGISTER(gdbstub);
 #include "gdbstub_backend.h"
 
 /* +1 is for the NULL character added during receive */
-#define GDB_PACKET_SIZE     (CONFIG_GDBSTUB_BUF_SZ + 1)
+#define GDB_PACKET_SIZE (CONFIG_GDBSTUB_BUF_SZ + 1)
 
 /* GDB remote serial protocol does not define errors value properly
  * and handle all error packets as the same the code error is not
  * used. There are informal values used by others gdbstub
  * implementation, like qemu. Lets use the same here.
  */
-#define GDB_ERROR_GENERAL   "E01"
-#define GDB_ERROR_MEMORY    "E14"
-#define GDB_ERROR_OVERFLOW  "E22"
+#define GDB_ERROR_GENERAL  "E01"
+#define GDB_ERROR_MEMORY   "E14"
+#define GDB_ERROR_OVERFLOW "E22"
 
 static bool not_first_start;
 
@@ -44,38 +44,36 @@ __weak const struct gdb_mem_region gdb_mem_region_array[0];
 /* Number of memory regions, default to 0 */
 __weak const size_t gdb_mem_num_regions;
 
-#if DBG_PRINT == 1
-	#define printch(p) {
-		// wait for an empty flag in case the buffer is completely full
-		while ((sys_read32(0xe000102c) & 0x8) == 0) {
-			;
-		}
-		sys_write32((unsigned int)(p), 0xE0001030);
+static void printch(char p)
+{
+	// wait for an empty flag in case the buffer is completely full
+	while ((sys_read32(0xe000102c) & 0x8) == 0) {
+		;
 	}
-	#define print(prefix, num) {
-			for (char *p = prefix; *p; p++) {
-			printch(*p);
-		}
+	sys_write32((unsigned int)(p), 0xE0001030);
+}
 
-		char str[12] = {0};
-		char hex[] = "0123456789abcdef";
-		char *p = str;
-		do {
-			*p++ = hex[num & 0xf];
-			num >>= 4;
-		} while (num > 0);
-		*p++ = 'x';
-		*p = '0';
-		while (p >= str) {
-			printch(*p--);
-		}
-		printch('\r');
-		printch('\n');
+static void print(char *prefix, unsigned num)
+{
+	for (char *p = prefix; *p; p++) {
+		printch(*p);
 	}
-#else
-	#define printch(p)
-	#define print(prefix, num)
-#endif
+
+	char str[12] = {0};
+	char hex[] = "0123456789abcdef";
+	char *p = str;
+	do {
+		*p++ = hex[num & 0xf];
+		num >>= 4;
+	} while (num > 0);
+	*p++ = 'x';
+	*p = '0';
+	while (p >= str) {
+		printch(*p--);
+	}
+	printch('\r');
+	printch('\n');
+}
 
 /**
  * Given a starting address and length of a memory block, find a memory
@@ -445,6 +443,8 @@ static int gdb_mem_write_unaligned(const uint8_t *buf, uintptr_t addr, size_t le
 			goto out;
 		}
 
+		print("Write: ",data);
+
 		*(uint8_t *)addr = data;
 
 		count += cnt;
@@ -564,7 +564,6 @@ static int gdb_mem_write(const uint8_t *buf, uintptr_t addr, size_t len)
 	print("W", 0);
 	print("\nWrite at: ", addr);
 	print("Write len: ", len);
-	print("Write: ", buf);
 	uint8_t align;
 	int ret;
 
