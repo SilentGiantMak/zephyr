@@ -36,7 +36,7 @@ LOG_MODULE_REGISTER(gdbstub);
 #define GDB_ERROR_MEMORY    "E14"
 #define GDB_ERROR_OVERFLOW  "E22"
 
-static bool not_first_start;
+static int not_first_start;
 
 /* Empty memory region array */
 __weak const struct gdb_mem_region gdb_mem_region_array[0];
@@ -596,7 +596,7 @@ int z_gdb_main_loop(struct gdb_ctx *ctx)
 	if (not_first_start) {
 		gdb_send_exception(buf, sizeof(buf), ctx->exception);
 	} else {
-		not_first_start = true;
+		not_first_start = 1;
 	}
 
 #define CHECK_ERROR(condition)			\
