@@ -23,9 +23,12 @@
 #define SPSR_REG_IDX	25
 #define GDB_PACKET_SIZE (41 * 8 + 8)
 
+#if defined(CONFIG_EXTRA_EXCEPTION_INFO)
 /* Position of each register in the packet, see GDB code */
 static const int packet_pos[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 41};
-
+#else
+static const int packet_pos[] = {0, 1, 2, 3, 12, 14, 15, 41};
+#endif
 /* Required struct */
 static struct gdb_ctx ctx;
 
@@ -76,7 +79,7 @@ void z_gdb_entry(z_arch_esf_t *esf, unsigned int exc_cause)
 	ctx.registers[R1] = esf->basic.r1;
 	ctx.registers[R2] = esf->basic.r2;
 	ctx.registers[R3] = esf->basic.r3;
-	/* We are going to assume, that the EXTRA_EXCEPTION_INFO kernel option is set */
+#if defined(CONFIG_EXTRA_EXCEPTION_INFO)	
 	ctx.registers[R4] = esf->extra_info.callee->v1;
 	ctx.registers[R5] = esf->extra_info.callee->v2;
 	ctx.registers[R6] = esf->extra_info.callee->v3;
@@ -86,6 +89,7 @@ void z_gdb_entry(z_arch_esf_t *esf, unsigned int exc_cause)
 	ctx.registers[R10] = esf->extra_info.callee->v7;
 	ctx.registers[R11] = esf->extra_info.callee->v8;
 	ctx.registers[R13] = esf->extra_info.callee->psp;
+#endif
 	ctx.registers[R12] = esf->basic.r12;
 	ctx.registers[LR] = esf->basic.lr;
 	ctx.registers[PC] = esf->basic.pc;
@@ -93,23 +97,23 @@ void z_gdb_entry(z_arch_esf_t *esf, unsigned int exc_cause)
 
 	z_gdb_main_loop(&ctx);
 
+	/* The registers part of EXTRA_EXCEPTION_INFO are read-only - the excpetion return code
+	does not restore them, thus we don't need to do so here */
 	esf->basic.r0 = ctx.registers[R0];
 	esf->basic.r1 = ctx.registers[R1];
 	esf->basic.r2 = ctx.registers[R2];
 	esf->basic.r3 = ctx.registers[R3];
 	esf->basic.r12 = ctx.registers[R12];
 	esf->basic.lr = ctx.registers[LR];
-	/* The registers part of EXTRA_EXCEPTION_INFO are read-only - the excpetion return code
-	does not restore them, thus we don't need to do so here */
-	if (first_entry) {
-		/* The CPU should continue on the next instruction - apply this offset,
-		so that it won't be affected by the bkpt instruction */
-		esf->basic.pc = ctx.registers[PC] + 0x4;
-	} else {
-		esf->basic.pc = ctx.registers[PC];
-	}
-	first_entry = 0;
+	esf->basic.pc = ctx.registers[PC];
 	esf->basic.xpsr = ctx.registers[SPSR];
+
+	if (first_entry) {
+		/* Apply this offset, so that the process won't be affected by the 
+		BKPT instruction */
+		esf->basic.pc += 0x4;
+		first_entry = 0;
+	}
 }
 
 void arch_gdb_init(void)
@@ -123,7 +127,7 @@ void arch_gdb_init(void)
 	__asm__ volatile("mcr p14, 0, %0, c0, c2, 2" ::"r"(reg_val) :);
 
 	/* Generate the Prefetch abort exception */
-	//__asm__ volatile("BKPT");
+	__asm__ volatile("BKPT");
 }
 
 void arch_gdb_continue(void)

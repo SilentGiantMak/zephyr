@@ -5,13 +5,18 @@
 
 #ifndef _ASMLANGUAGE
 
+#if defined(CONFIG_EXTRA_EXCEPTION_INFO)
 #define GDB_STUB_NUM_REGISTERS 17
+#else
+#define GDB_STUB_NUM_REGISTERS 8
+#endif
 
 enum AARCH32_GDB_REG {
 	R0 = 0,
 	R1,
 	R2,
 	R3,
+#if defined(CONFIG_EXTRA_EXCEPTION_INFO)
 	/* READONLY registers (R4 - R13) except R12 */
 	R4,
 	R5,
@@ -24,6 +29,9 @@ enum AARCH32_GDB_REG {
 	R12,
 	/* Stack pointer - READONLY */
 	R13,
+#else
+	R12,
+#endif
 	LR,
 	PC,
 	/* Saved program status register */
