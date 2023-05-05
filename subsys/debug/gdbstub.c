@@ -36,7 +36,7 @@ LOG_MODULE_REGISTER(gdbstub);
 #define GDB_ERROR_MEMORY   "E14"
 #define GDB_ERROR_OVERFLOW "E22"
 
-static bool not_first_start;
+static int not_first_start;
 
 /* Empty memory region array */
 __weak const struct gdb_mem_region gdb_mem_region_array[0];
@@ -608,7 +608,6 @@ static int gdb_send_exception(uint8_t *buf, size_t len, uint8_t exception)
  */
 int z_gdb_main_loop(struct gdb_ctx *ctx)
 {
-	const int nfs = not_first_start;
 	print("Main stub loop ", not_first_start);
 	/* 'static' modifier is intentional so the buffer
 	 * is not declared inside running stack, which may
@@ -627,9 +626,7 @@ int z_gdb_main_loop(struct gdb_ctx *ctx)
 	/* Only send exception if this is not the first
 	 * GDB break.
 	 */
-	print("Var: ", not_first_start);
-	print("Our var: ", nfs);
-	if (nfs) {
+	if (not_first_start) {
 		print("NFS ", 0);
 		gdb_send_exception(buf, sizeof(buf), ctx->exception);
 	} else {
