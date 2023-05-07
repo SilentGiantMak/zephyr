@@ -80,7 +80,7 @@ static const struct arm_mmu_flat_range mmu_zephyr_ranges[] = {
 	  .start = (uint32_t)__text_region_start,
 	  .end   = (uint32_t)__text_region_end,
 	  .attrs = MT_NORMAL | MATTR_SHARED |
-		   MPERM_R | MPERM_X |
+		   MPERM_R | MPERM_X | MPERM_W |
 		   MATTR_CACHE_OUTER_WB_nWA | MATTR_CACHE_INNER_WB_nWA |
 		   MATTR_MAY_MAP_L1_SECTION},
 
