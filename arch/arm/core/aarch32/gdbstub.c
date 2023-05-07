@@ -19,11 +19,14 @@
 #define DBGDBCR_SUPERVISOR_ACCESS_SHIFT 1
 #define DBGDBCR_BRK_EN_MASK		0x1
 
+/* Position of each register in the packet, see GDB code */
+static const int packet_pos[] = {0, 1, 2, 3, 12, 14, 15, 25};
+
 /* Required struct */
 static struct gdb_ctx ctx;
 
 /* Wrapper function to save and restore execution context */
-static void z_gdb_entry(z_arch_esf_t *esf);
+void z_gdb_entry(z_arch_esf_t *esf)
 {
 	// TODO add more exception causes - the stub supports just the debug event (0x2)
 	ctx.exception = 0x2;
@@ -35,7 +38,7 @@ static void z_gdb_entry(z_arch_esf_t *esf);
 	ctx.registers[R12] = esf->basic.r12;
 	ctx.registers[LR] = esf->basic.lr;
 	ctx.registers[PC] = esf->basic.pc;
-	ctx.registers[SPSR] = esf->xpsr;
+	ctx.registers[SPSR] = esf->basic.xpsr;
 
 	z_gdb_main_loop(&ctx);
 
@@ -46,7 +49,7 @@ static void z_gdb_entry(z_arch_esf_t *esf);
 	esf->basic.r12 = ctx.registers[R12];
 	esf->basic.lr = ctx.registers[LR];
 	esf->basic.pc = ctx.registers[PC];
-	esf->xpsr = ctx.registers[SPSR];
+	esf->basic.xpsr = ctx.registers[SPSR];
 }
 
 void arch_gdb_init(void)
@@ -138,7 +141,7 @@ size_t arch_gdb_reg_readone(struct gdb_ctx *ctx, uint8_t *buf, size_t buflen, ui
 	} else {
 		/* Check which of our registers corresponds to regnum */
 		for (int i = 0; i < GDB_STUB_NUM_REGISTERS; i++) {
-			if (packet_pos[i] == regnum) {
+			if (packet_pos[i] == regno) {
 				ret = bin2hex((uint8_t *)(ctx->registers + i), 4, buf, buflen);
 				break;
 			}
@@ -154,7 +157,7 @@ size_t arch_gdb_reg_writeone(struct gdb_ctx *ctx, uint8_t *hex, size_t hexlen, u
 	if (regno < GDB_STUB_NUM_REGISTERS && hexlen == 8) {
 		/* Again, check the corresponding register index */
 		for (int i = 0; i < GDB_STUB_NUM_REGISTERS; i++) {
-			if (packet_pos[i] == regnum) {
+			if (packet_pos[i] == regno) {
 				ret = hex2bin(hex, hexlen, (uint8_t *)(ctx->registers + i), 4);
 				break;
 			}
