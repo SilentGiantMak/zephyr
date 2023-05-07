@@ -194,6 +194,11 @@ bool z_arm_fault_undef_instruction(z_arch_esf_t *esf)
 		);
 #endif
 
+#if defined(CONFIG_GDBSTUB)
+	z_gdb_entry(esf,GDB_EXCEPTION_INVALID_INSTRUCTION);
+	/* Still is fatal fault, continue */
+#endif
+
 	/* Print fault information */
 	LOG_ERR("***** UNDEFINED INSTRUCTION ABORT *****");
 
@@ -298,12 +303,9 @@ bool z_arm_fault_data(z_arch_esf_t *esf)
 	uint32_t dfar = __get_DFAR();
 
 #if defined(CONFIG_GDBSTUB)
-	if (fs == 0x2)
-	{
-		z_gdb_entry(esf, GDB_EXCEPTION_MEMORY_FAULT);
-		// return false - non-fatal error
-		return false;
-	}
+	z_gdb_entry(esf, GDB_EXCEPTION_MEMORY_FAULT);
+	// return false - non-fatal error
+	return false;
 #endif
 
 #if defined(CONFIG_USERSPACE)
