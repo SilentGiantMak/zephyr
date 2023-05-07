@@ -26,10 +26,10 @@ static const int packet_pos[] = {0, 1, 2, 3, 12, 14, 15, 41};
 static struct gdb_ctx ctx;
 
 /* Wrapper function to save and restore execution context */
-void z_gdb_entry(z_arch_esf_t *esf)
+void z_gdb_entry(z_arch_esf_t *esf, unsigned int exc_cause)
 {
 	// TODO add more exception causes - the stub supports just the debug event (0x2)
-	ctx.exception = 0x2;
+	ctx.exception = exc_cause;
 	// save the registers
 	ctx.registers[R0] = esf->basic.r0;
 	ctx.registers[R1] = esf->basic.r1;

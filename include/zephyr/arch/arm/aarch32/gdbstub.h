@@ -26,7 +26,7 @@ struct gdb_ctx {
 	unsigned int registers[GDB_STUB_NUM_REGISTERS];
 };
 
-void z_gdb_entry(z_arch_esf_t *esf);
+void z_gdb_entry(z_arch_esf_t *esf, unsigned int exc_cause);
 
 #endif
 

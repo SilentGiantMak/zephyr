@@ -10,6 +10,7 @@
 #include <zephyr/exc_handle.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/arch/arm/aarch32/gdbstub.h>
+#include <zephyr/debug/gdbstub.h>
 
 LOG_MODULE_DECLARE(os, CONFIG_KERNEL_LOG_LEVEL);
 
@@ -228,7 +229,7 @@ bool z_arm_fault_prefetch(z_arch_esf_t *esf)
 	if (fs == 0x2)
 	{
 		/* Debug event, call the gdbstub handler */
-		z_gdb_entry(esf);
+		z_gdb_entry(esf, GDB_EXCEPTION_BREAKPOINT);
 		/* Non-fatal error, restore the context */
 		return false;
 	}
@@ -295,6 +296,15 @@ bool z_arm_fault_data(z_arch_esf_t *esf)
 
 	/* Read Data Fault Address Register (DFAR) */
 	uint32_t dfar = __get_DFAR();
+
+#if defined(CONFIG_GDBSTUB)
+	if (fs == 0x2)
+	{
+		z_gdb_entry(esf, GDB_EXCEPTION_MEMORY_FAULT);
+		// return false - non-fatal error
+		return false;
+	}
+#endif
 
 #if defined(CONFIG_USERSPACE)
 	if ((fs == FSR_FS_BACKGROUND_FAULT)
