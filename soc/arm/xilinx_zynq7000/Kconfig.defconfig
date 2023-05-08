@@ -24,4 +24,9 @@ config FLASH_BASE_ADDRESS
 config PLATFORM_SPECIFIC_INIT
 	default y
 
+# GDB for ARM expects up to 18 4-byte plus 8 12-byte
+# registers - 336 HEX letters
+config GDBSTUB_BUF_SZ
+	default 350 if GDBSTUB
+
 endif # SOC_FAMILY_XILINX_ZYNQ7000
