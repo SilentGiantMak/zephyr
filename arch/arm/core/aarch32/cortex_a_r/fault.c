@@ -232,7 +232,7 @@ bool z_arm_fault_prefetch(z_arch_esf_t *esf)
 
 #if defined(CONFIG_GDBSTUB)
 	/* The BKPT instruction could have caused a software breakpoint */
-	if (fs == 0x2)
+	if (fs == IFSR_DEBUG_EVENT)
 	{
 		/* Debug event, call the gdbstub handler */
 		z_gdb_entry(esf, GDB_EXCEPTION_BREAKPOINT);
@@ -305,7 +305,7 @@ bool z_arm_fault_data(z_arch_esf_t *esf)
 
 #if defined(CONFIG_GDBSTUB)
 	z_gdb_entry(esf, GDB_EXCEPTION_MEMORY_FAULT);
-	// return false - non-fatal error
+	/* return false - non-fatal error */
 	return false;
 #endif
 

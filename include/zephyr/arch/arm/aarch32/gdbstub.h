@@ -11,7 +11,7 @@
 
 #ifndef _ASMLANGUAGE
 
-#define GDB_STUB_NUM_REGISTERS 17
+#define IFSR_DEBUG_EVENT 0x2
 
 enum AARCH32_GDB_REG {
 	R0 = 0,
@@ -33,14 +33,15 @@ enum AARCH32_GDB_REG {
 	LR,
 	PC,
 	/* Saved program status register */
-	SPSR
+	SPSR,
+	GDB_NUM_REGS
 };
 
-// required structure
+/* required structure */ 
 struct gdb_ctx {
-	// cause of the exception
+	/* cause of the exception */
 	unsigned int exception;
-	unsigned int registers[GDB_STUB_NUM_REGISTERS];
+	unsigned int registers[GDB_NUM_REGS];
 };
 
 void z_gdb_entry(z_arch_esf_t *esf, unsigned int exc_cause);

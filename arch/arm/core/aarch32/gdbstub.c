@@ -10,33 +10,36 @@
 
 #define DBGDSCR_MONITOR_MODE_EN 0x8000
 
-#define DBGDBCR_ADDR_MASK_MASK		0x1F
-#define DBGDBCR_ADDR_MASK_SHIFT		24
 #define DBGDBCR_MEANING_MASK		0x7
 #define DBGDBCR_MEANING_SHIFT		20
-#define DBGDBCR_MEANING_ADDR_MATCH	0x0
 #define DBGDBCR_MEANING_ADDR_MISMATCH	0x4
-#define DBGDBCR_LINKED_BRP_MASK		0xF
-#define DBGDBCR_LINKED_BRP_SHIFT	16
-#define DBGDBCR_SECURE_STATE_MASK	0x3
-#define DBGDBCR_SECURE_STATE_SHIFT	14
 #define DBGDBCR_BYTE_ADDR_MASK		0xF
 #define DBGDBCR_BYTE_ADDR_SHIFT		5
-#define DBGDBCR_SUPERVISOR_ACCESS_MASK	0x3
-#define DBGDBCR_SUPERVISOR_ACCESS_SHIFT 1
 #define DBGDBCR_BRK_EN_MASK		0x1
 
 #define SPSR_REG_IDX	25
 #define GDB_PACKET_SIZE (41 * 8 + 8)
 
-/* Position of each register in the packet, see GDB code */
+/* Position of each register in the packet, see struct arm_register_names in GDB 
+file gdb/arm-tdep.c */
 static const int packet_pos[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 41};
 
 /* Required struct */
 static struct gdb_ctx ctx;
 
 /* True if entering after a BKPT instruction */
-static int first_entry;
+static int bkpt_entry;
+
+/* Return true if BKPT instruction caused the current entry */
+int is_bkpt(unsigned int exc_cause)
+{
+	int ret = 0;
+	if (exc_cause == IFSR_DEBUG_EVENT)
+	{
+		/* Try to check the instruction encoding */
+		return 1;
+	}
+}
 
 /* Wrapper function to save and restore execution context */
 void z_gdb_entry(z_arch_esf_t *esf, unsigned int exc_cause)
@@ -45,12 +48,12 @@ void z_gdb_entry(z_arch_esf_t *esf, unsigned int exc_cause)
 	__asm__ volatile("mcr p14, 0, %0, c0, c0, 5" ::"r"(0x0) :);
 
 	ctx.exception = exc_cause;
-	// save the registers
+	/* save the registers */
 	ctx.registers[R0] = esf->basic.r0;
 	ctx.registers[R1] = esf->basic.r1;
 	ctx.registers[R2] = esf->basic.r2;
 	ctx.registers[R3] = esf->basic.r3;
-	/* We are going to assume, that the EXTRA_EXCEPTION_INFO kernel option is set */
+	/* The EXTRA_EXCEPTION_INFO kernel option includes these regs */
 	ctx.registers[R4] = esf->extra_info.callee->v1;
 	ctx.registers[R5] = esf->extra_info.callee->v2;
 	ctx.registers[R6] = esf->extra_info.callee->v3;
@@ -60,6 +63,7 @@ void z_gdb_entry(z_arch_esf_t *esf, unsigned int exc_cause)
 	ctx.registers[R10] = esf->extra_info.callee->v7;
 	ctx.registers[R11] = esf->extra_info.callee->v8;
 	ctx.registers[R13] = esf->extra_info.callee->psp;
+
 	ctx.registers[R12] = esf->basic.r12;
 	ctx.registers[LR] = esf->basic.lr;
 	ctx.registers[PC] = esf->basic.pc;
@@ -77,23 +81,21 @@ void z_gdb_entry(z_arch_esf_t *esf, unsigned int exc_cause)
 	esf->basic.lr = ctx.registers[LR];
 	esf->basic.pc = ctx.registers[PC];
 	esf->basic.xpsr = ctx.registers[SPSR];
-	// TODO: restore regs from extra exc. info
+	/* TODO: restore regs from extra exc. info */ 
 
-	if (first_entry) {
-		/* The CPU should continue on the next instruction - apply this offset,
-		so that it won't be affected by the bkpt instruction */
-		esf->basic.pc = ctx.registers[PC] + 0x4;
-	} else {
-		esf->basic.pc = ctx.registers[PC];
+	if (bkpt_entry) {
+		/* Apply this offset, so that the process won't be affected by the 
+		BKPT instruction */
+		esf->basic.pc += 0x4;
+		bkpt_entry = 0;
 	}
-	first_entry = 0;
 	esf->basic.xpsr = ctx.registers[SPSR];
 }
 
 void arch_gdb_init(void)
 {
 	/* Enable the monitor debug mode */
-	first_entry = 1;
+	bkpt_entry = 1;
 	uint32_t reg_val;
 	/* Enable the monitor debug mode */
 	__asm__ volatile("mrc p14, 0, %0, c0, c2, 2" : "=r"(reg_val)::);
@@ -132,7 +134,7 @@ size_t arch_gdb_reg_readall(struct gdb_ctx *ctx, uint8_t *buf, size_t buflen)
 	int ret = 0;
 	/* All other register are not supported */
 	memset(buf, 'x', buflen);
-	for (int i = 0; i < GDB_STUB_NUM_REGISTERS; i++) {
+	for (int i = 0; i < GDB_NUM_REGS; i++) {
 		/* offset inside the packet */
 		int pos = packet_pos[i] * 8;
 		int r = bin2hex((const uint8_t *)(ctx->registers + i), 4, buf + pos, buflen - pos);
@@ -159,7 +161,7 @@ size_t arch_gdb_reg_writeall(struct gdb_ctx *ctx, uint8_t *hex, size_t hexlen)
 	for (unsigned int i = 0; i < hexlen; i += 8) {
 		if (hex[i] != 'x') {
 			/* check if the stub supports this register */
-			for (unsigned int j = 0; j < GDB_STUB_NUM_REGISTERS; j++) {
+			for (unsigned int j = 0; j < GDB_NUM_REGS; j++) {
 				if (packet_pos[j] != i) {
 					continue;
 				}
@@ -182,11 +184,11 @@ size_t arch_gdb_reg_readone(struct gdb_ctx *ctx, uint8_t *buf, size_t buflen, ui
 	ret = 8;
 	if (regno == SPSR_REG_IDX) {
 		/* The SPSR register is at the end, we have to check separately */
-		ret = bin2hex((uint8_t *)(ctx->registers + GDB_STUB_NUM_REGISTERS - 1), 4, buf,
+		ret = bin2hex((uint8_t *)(ctx->registers + GDB_NUM_REGS - 1), 4, buf,
 			      buflen);
 	} else {
 		/* Check which of our registers corresponds to regnum */
-		for (int i = 0; i < GDB_STUB_NUM_REGISTERS; i++) {
+		for (int i = 0; i < GDB_NUM_REGS; i++) {
 			if (packet_pos[i] == regno) {
 				ret = bin2hex((uint8_t *)(ctx->registers + i), 4, buf, buflen);
 				break;
@@ -204,16 +206,16 @@ size_t arch_gdb_reg_writeone(struct gdb_ctx *ctx, uint8_t *hex, size_t hexlen, u
 		return ret;
 	}
 
-	if (regno < (GDB_STUB_NUM_REGISTERS - 1)) {
+	if (regno < (GDB_NUM_REGS - 1)) {
 		/* Again, check the corresponding register index */
-		for (int i = 0; i < GDB_STUB_NUM_REGISTERS; i++) {
+		for (int i = 0; i < GDB_NUM_REGS; i++) {
 			if (packet_pos[i] == regno) {
 				ret = hex2bin(hex, hexlen, (uint8_t *)(ctx->registers + i), 4);
 				break;
 			}
 		}
 	} else if (regno == SPSR_REG_IDX) {
-		ret = hex2bin(hex, hexlen, (uint8_t *)(ctx->registers + GDB_STUB_NUM_REGISTERS - 1),
+		ret = hex2bin(hex, hexlen, (uint8_t *)(ctx->registers + GDB_NUM_REGS - 1),
 			      4);
 	}
 	return ret;
