@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2023 Marek Vedral <vedrama5@fel.cvut.cz>
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #ifndef ZEPHYR_INCLUDE_ARCH_ARM_AARCH32_GDBSTUB_H_
 #define ZEPHYR_INCLUDE_ARCH_ARM_AARCH32_GDBSTUB_H_
 

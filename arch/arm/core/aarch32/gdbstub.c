@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2023 Marek Vedral <vedrama5@fel.cvut.cz>
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #include <zephyr/kernel.h>
 #include <kernel_internal.h>
 #include <zephyr/arch/arm/aarch32/gdbstub.h>
@@ -61,14 +67,18 @@ void z_gdb_entry(z_arch_esf_t *esf, unsigned int exc_cause)
 
 	z_gdb_main_loop(&ctx);
 
+	/* The registers part of EXTRA_EXCEPTION_INFO are read-only - the excpetion return code
+	does not restore them, thus we don't need to do so here */
 	esf->basic.r0 = ctx.registers[R0];
 	esf->basic.r1 = ctx.registers[R1];
 	esf->basic.r2 = ctx.registers[R2];
 	esf->basic.r3 = ctx.registers[R3];
 	esf->basic.r12 = ctx.registers[R12];
 	esf->basic.lr = ctx.registers[LR];
-	/* The registers part of EXTRA_EXCEPTION_INFO are read-only - the excpetion return code
-	does not restore them, thus we don't need to do so here */
+	esf->basic.pc = ctx.registers[PC];
+	esf->basic.xpsr = ctx.registers[SPSR];
+	// TODO: restore regs from extra exc. info
+
 	if (first_entry) {
 		/* The CPU should continue on the next instruction - apply this offset,
 		so that it won't be affected by the bkpt instruction */
