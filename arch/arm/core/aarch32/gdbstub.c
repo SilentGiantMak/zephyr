@@ -10,17 +10,23 @@
 
 #define DBGDSCR_MONITOR_MODE_EN 0x8000
 
-#define DBGDBCR_MEANING_MASK		0x7
-#define DBGDBCR_MEANING_SHIFT		20
-#define DBGDBCR_MEANING_ADDR_MISMATCH	0x4
-#define DBGDBCR_BYTE_ADDR_MASK		0xF
-#define DBGDBCR_BYTE_ADDR_SHIFT		5
-#define DBGDBCR_BRK_EN_MASK		0x1
+#define SPSR_ISETSTATE_ARM     0x0
+#define SPSR_ISETSTATE_JAZELLE 0x2
+#define SPSR_J                 24
+#define SPSR_T                 5
 
-#define SPSR_REG_IDX	25
-#define GDB_PACKET_SIZE (41 * 8 + 8)
+#define DBGDBCR_MEANING_MASK          0x7
+#define DBGDBCR_MEANING_SHIFT         20
+#define DBGDBCR_MEANING_ADDR_MISMATCH 0x4
+#define DBGDBCR_BYTE_ADDR_MASK        0xF
+#define DBGDBCR_BYTE_ADDR_SHIFT       5
+#define DBGDBCR_BRK_EN_MASK           0x1
 
-/* Position of each register in the packet, see struct arm_register_names in GDB 
+#define SPSR_REG_IDX    25
+/* Minimal size of the packet - SPSR is the last, 42-nd byte, see packet_pos array */
+#define GDB_PACKET_SIZE (42 * 8)
+
+/* Position of each register in the packet, see struct arm_register_names in GDB
 file gdb/arm-tdep.c */
 static const int packet_pos[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 41};
 
@@ -34,11 +40,22 @@ static int bkpt_entry;
 int is_bkpt(unsigned int exc_cause)
 {
 	int ret = 0;
-	if (exc_cause == IFSR_DEBUG_EVENT)
-	{
+	if (exc_cause == IFSR_DEBUG_EVENT) {
+		/* Get the instruction */
+		unsigned int instr = sys_read32(ctx.registers[PC]);
 		/* Try to check the instruction encoding */
-		return 1;
+		int ist = (ctx.registers[SPSR] & BIT(SPSR_J) >> (SPSR_J - 1)) |
+			  (ctx.registers[SPSR] & BIT(SPSR_T) >> SPSR_T);
+
+		if (ist == SPSR_ISETSTATE_ARM) {
+			// ARM instruction set state
+			ret = (instr & 0xFF00000 == 0x1200000) & (instr & 0xF0 == 0x70);
+		} else if (ist != SPSR_ISETSTATE_JAZELLE) {
+			// Thumb or ThumbEE encoding
+			ret = (instr & 0xFF00 == 0xBE00);
+		}
 	}
+	return ret;
 }
 
 /* Wrapper function to save and restore execution context */
@@ -69,6 +86,9 @@ void z_gdb_entry(z_arch_esf_t *esf, unsigned int exc_cause)
 	ctx.registers[PC] = esf->basic.pc;
 	ctx.registers[SPSR] = esf->basic.xpsr;
 
+	/* True if entering after a BKPT instruction */
+	const int bkpt_entry = is_bkpt(exc_cause);
+
 	z_gdb_main_loop(&ctx);
 
 	/* The registers part of EXTRA_EXCEPTION_INFO are read-only - the excpetion return code
@@ -81,13 +101,12 @@ void z_gdb_entry(z_arch_esf_t *esf, unsigned int exc_cause)
 	esf->basic.lr = ctx.registers[LR];
 	esf->basic.pc = ctx.registers[PC];
 	esf->basic.xpsr = ctx.registers[SPSR];
-	/* TODO: restore regs from extra exc. info */ 
+	/* TODO: restore regs from extra exc. info */
 
 	if (bkpt_entry) {
-		/* Apply this offset, so that the process won't be affected by the 
+		/* Apply this offset, so that the process won't be affected by the
 		BKPT instruction */
 		esf->basic.pc += 0x4;
-		bkpt_entry = 0;
 	}
 	esf->basic.xpsr = ctx.registers[SPSR];
 }
@@ -95,7 +114,6 @@ void z_gdb_entry(z_arch_esf_t *esf, unsigned int exc_cause)
 void arch_gdb_init(void)
 {
 	/* Enable the monitor debug mode */
-	bkpt_entry = 1;
 	uint32_t reg_val;
 	/* Enable the monitor debug mode */
 	__asm__ volatile("mrc p14, 0, %0, c0, c2, 2" : "=r"(reg_val)::);
@@ -184,8 +202,7 @@ size_t arch_gdb_reg_readone(struct gdb_ctx *ctx, uint8_t *buf, size_t buflen, ui
 	ret = 8;
 	if (regno == SPSR_REG_IDX) {
 		/* The SPSR register is at the end, we have to check separately */
-		ret = bin2hex((uint8_t *)(ctx->registers + GDB_NUM_REGS - 1), 4, buf,
-			      buflen);
+		ret = bin2hex((uint8_t *)(ctx->registers + GDB_NUM_REGS - 1), 4, buf, buflen);
 	} else {
 		/* Check which of our registers corresponds to regnum */
 		for (int i = 0; i < GDB_NUM_REGS; i++) {
@@ -215,8 +232,7 @@ size_t arch_gdb_reg_writeone(struct gdb_ctx *ctx, uint8_t *hex, size_t hexlen, u
 			}
 		}
 	} else if (regno == SPSR_REG_IDX) {
-		ret = hex2bin(hex, hexlen, (uint8_t *)(ctx->registers + GDB_NUM_REGS - 1),
-			      4);
+		ret = hex2bin(hex, hexlen, (uint8_t *)(ctx->registers + GDB_NUM_REGS - 1), 4);
 	}
 	return ret;
 }

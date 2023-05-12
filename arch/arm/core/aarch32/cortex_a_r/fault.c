@@ -236,9 +236,11 @@ bool z_arm_fault_prefetch(z_arch_esf_t *esf)
 	{
 		/* Debug event, call the gdbstub handler */
 		z_gdb_entry(esf, GDB_EXCEPTION_BREAKPOINT);
-		/* Non-fatal error, restore the context */
-		return false;
+	}else{
+		/* Fatal */
+		z_gdb_entry(esf, GDB_EXCEPTION_MEMORY_FAULT);
 	}
+	return false;
 #endif
 	/* Print fault information*/
 	LOG_ERR("***** PREFETCH ABORT *****");
