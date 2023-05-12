@@ -32,7 +32,9 @@
 #include <zephyr/arch/arm/aarch32/nmi.h>
 #include <zephyr/arch/arm/aarch32/asm_inline.h>
 #include <zephyr/arch/common/sys_bitops.h>
+#if defined(CONFIG_GDBSTUB)
 #include <zephyr/arch/arm/aarch32/gdbstub.h>
+#endif
 
 #ifdef CONFIG_CPU_CORTEX_M
 #include <zephyr/arch/arm/aarch32/cortex_m/cpu.h>

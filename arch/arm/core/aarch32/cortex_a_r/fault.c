@@ -9,8 +9,10 @@
 #include <kernel_internal.h>
 #include <zephyr/exc_handle.h>
 #include <zephyr/logging/log.h>
+#if defined(CONFIG_GDBSTUB)
 #include <zephyr/arch/arm/aarch32/gdbstub.h>
 #include <zephyr/debug/gdbstub.h>
+#endif
 
 LOG_MODULE_DECLARE(os, CONFIG_KERNEL_LOG_LEVEL);
 
