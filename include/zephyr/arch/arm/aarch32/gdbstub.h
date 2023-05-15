@@ -11,6 +11,24 @@
 
 #ifndef _ASMLANGUAGE
 
+#define DBGDSCR_MONITOR_MODE_EN 0x8000
+
+#define SPSR_ISETSTATE_ARM     0x0
+#define SPSR_ISETSTATE_JAZELLE 0x2
+#define SPSR_J                 24
+#define SPSR_T                 5
+
+#define DBGDBCR_MEANING_MASK          0x7
+#define DBGDBCR_MEANING_SHIFT         20
+#define DBGDBCR_MEANING_ADDR_MISMATCH 0x4
+#define DBGDBCR_BYTE_ADDR_MASK        0xF
+#define DBGDBCR_BYTE_ADDR_SHIFT       5
+#define DBGDBCR_BRK_EN_MASK           0x1
+
+#define SPSR_REG_IDX    25
+/* Minimal size of the packet - SPSR is the last, 42-nd byte, see packet_pos array */
+#define GDB_PACKET_SIZE (42 * 8)
+
 #define IFSR_DEBUG_EVENT 0x2
 
 enum AARCH32_GDB_REG {

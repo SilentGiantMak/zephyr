@@ -7,24 +7,7 @@
 #include <zephyr/kernel.h>
 #include <kernel_internal.h>
 #include <zephyr/arch/arm/aarch32/gdbstub.h>
-
-#define DBGDSCR_MONITOR_MODE_EN 0x8000
-
-#define SPSR_ISETSTATE_ARM     0x0
-#define SPSR_ISETSTATE_JAZELLE 0x2
-#define SPSR_J                 24
-#define SPSR_T                 5
-
-#define DBGDBCR_MEANING_MASK          0x7
-#define DBGDBCR_MEANING_SHIFT         20
-#define DBGDBCR_MEANING_ADDR_MISMATCH 0x4
-#define DBGDBCR_BYTE_ADDR_MASK        0xF
-#define DBGDBCR_BYTE_ADDR_SHIFT       5
-#define DBGDBCR_BRK_EN_MASK           0x1
-
-#define SPSR_REG_IDX    25
-/* Minimal size of the packet - SPSR is the last, 42-nd byte, see packet_pos array */
-#define GDB_PACKET_SIZE (42 * 8)
+#include <zephyr/debug/gdbstub.h>
 
 /* Position of each register in the packet, see struct arm_register_names in GDB
 file gdb/arm-tdep.c */
@@ -33,26 +16,23 @@ static const int packet_pos[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 1
 /* Required struct */
 static struct gdb_ctx ctx;
 
-/* True if entering after a BKPT instruction */
-static int bkpt_entry;
-
 /* Return true if BKPT instruction caused the current entry */
 int is_bkpt(unsigned int exc_cause)
 {
 	int ret = 0;
-	if (exc_cause == IFSR_DEBUG_EVENT) {
+	if (exc_cause == GDB_EXCEPTION_BREAKPOINT) {
 		/* Get the instruction */
 		unsigned int instr = sys_read32(ctx.registers[PC]);
 		/* Try to check the instruction encoding */
-		int ist = (ctx.registers[SPSR] & BIT(SPSR_J) >> (SPSR_J - 1)) |
-			  (ctx.registers[SPSR] & BIT(SPSR_T) >> SPSR_T);
+		int ist = ((ctx.registers[SPSR] & BIT(SPSR_J)) >> (SPSR_J - 1)) |
+			  ((ctx.registers[SPSR] & BIT(SPSR_T)) >> SPSR_T);
 
 		if (ist == SPSR_ISETSTATE_ARM) {
 			// ARM instruction set state
-			ret = (instr & 0xFF00000 == 0x1200000) & (instr & 0xF0 == 0x70);
+			ret = ((instr & 0xFF00000) == 0x1200000) && ((instr & 0xF0) == 0x70);
 		} else if (ist != SPSR_ISETSTATE_JAZELLE) {
 			// Thumb or ThumbEE encoding
-			ret = (instr & 0xFF00 == 0xBE00);
+			ret = ((instr & 0xFF00) == 0xBE00);
 		}
 	}
 	return ret;
@@ -113,7 +93,6 @@ void z_gdb_entry(z_arch_esf_t *esf, unsigned int exc_cause)
 
 void arch_gdb_init(void)
 {
-	/* Enable the monitor debug mode */
 	uint32_t reg_val;
 	/* Enable the monitor debug mode */
 	__asm__ volatile("mrc p14, 0, %0, c0, c2, 2" : "=r"(reg_val)::);
@@ -150,7 +129,7 @@ void arch_gdb_step(void)
 size_t arch_gdb_reg_readall(struct gdb_ctx *ctx, uint8_t *buf, size_t buflen)
 {
 	int ret = 0;
-	/* All other register are not supported */
+	/* All other registers are not supported */
 	memset(buf, 'x', buflen);
 	for (int i = 0; i < GDB_NUM_REGS; i++) {
 		/* offset inside the packet */
